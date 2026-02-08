@@ -131,10 +131,10 @@ You'll need:
    ```env
    # From Discord Developer Portal
    DISCORD_BOT_TOKEN=xxxxxxxxxx
-   DISCORD_CLIENT_ID=1234567890123456789
+   DISCORD_CLIENT_ID=yyyyyyy
 
    # From Overseerr Settings
-   OVERSEERR_API_KEY=abcdef1234567890abcdef1234567890
+   OVERSEERR_API_KEY=zzzzzzzz
    
    # Your Overseerr connection details
    OVERSEERR_HOSTNAME=host.docker.internal  # or your Overseerr IP/domain
