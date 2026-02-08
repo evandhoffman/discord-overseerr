@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - PUID=${PUID:-3333}
+        - PGID=${PGID:-3333}
     container_name: discord-overseerr-bot
     restart: unless-stopped
     

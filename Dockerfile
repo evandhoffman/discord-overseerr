@@ -3,6 +3,10 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 # Set working directory
 WORKDIR /app
 
+# Build arguments for user configuration
+ARG PUID=3333
+ARG PGID=3333
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -27,7 +31,8 @@ COPY bot/ ./bot/
 RUN mkdir -p /app/config /app/logs
 
 # Create non-root user for security
-RUN useradd -m -u 1000 botuser && \
+RUN groupadd -g ${PGID} botuser && \
+    useradd -m -u ${PUID} -g ${PGID} botuser && \
     chown -R botuser:botuser /app
 
 USER botuser
