@@ -137,10 +137,15 @@ class MovieCommands(commands.Cog):
             return
 
         try:
+            logger.info(
+                f"User {interaction.user.name} ({interaction.user.id}) searching for: '{title}'"
+            )
+
             # Search for movies
             movies = await self.bot.overseerr.search_movies(title)
 
             if not movies:
+                logger.info(f"No movies found for query: '{title}'")
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="❌ No Results",
@@ -150,6 +155,8 @@ class MovieCommands(commands.Cog):
                 )
                 return
 
+            logger.info(f"Found {len(movies)} movie(s) for query: '{title}'")
+
             if len(movies) == 1:
                 # Single result - show details
                 await self._show_movie_details(interaction, movies[0])
@@ -158,11 +165,17 @@ class MovieCommands(commands.Cog):
                 await self._show_movie_selection(interaction, movies)
 
         except Exception as e:
-            logger.error(f"Error in request command: {e}")
+            logger.error(
+                f"Error in request command for user {interaction.user.name} "
+                f"searching '{title}': {e}",
+                exc_info=True,
+            )
             await interaction.followup.send(
                 embed=discord.Embed(
                     title="❌ Error",
-                    description=f"An error occurred: {str(e)}",
+                    description=f"An error occurred while searching for **{title}**.\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Please try again or contact an administrator if the problem persists.",
                     color=discord.Color.red(),
                 )
             )
