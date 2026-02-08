@@ -214,6 +214,12 @@ class MovieCommands(commands.Cog):
             await select_interaction.response.defer()
             tmdb_id = int(select_interaction.data["values"][0])
             movie = await self.bot.overseerr.get_movie_by_id(tmdb_id)
+
+            logger.info(
+                f"User {select_interaction.user.name} (UID {select_interaction.user.id}) "
+                f"selected: '{movie.title}' ({movie.release_year or 'Unknown year'}) [TMDB ID: {movie.tmdb_id}]"
+            )
+
             await self._show_movie_details(interaction, movie)
 
         select.callback = select_callback
@@ -225,6 +231,11 @@ class MovieCommands(commands.Cog):
 
     async def _show_movie_details(self, interaction: discord.Interaction, movie: Movie):
         """Show movie details with request button"""
+        logger.info(
+            f"Showing details for: '{movie.title}' ({movie.release_year or 'Unknown year'}) "
+            f"[TMDB ID: {movie.tmdb_id}] - Status: {movie.status.name}"
+        )
+
         embed = discord.Embed(
             title=movie.title,
             description=movie.overview[:500] if movie.overview else "No description available",
