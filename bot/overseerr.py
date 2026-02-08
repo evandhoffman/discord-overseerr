@@ -132,13 +132,14 @@ class OverseerrClient:
         try:
             logger.debug(f"Searching for movies: query='{query}', is_4k={is_4k}")
             session = await self._get_session()
-            url = f"{self.base_url}search"
-            params = {"query": query, "page": 1, "language": "en"}
+
+            # Manually URL encode the query to satisfy Overseerr's strict requirements
+            encoded_query = quote(query, safe="")
+            url = f"{self.base_url}search?query={encoded_query}&page=1&language=en"
 
             logger.debug(f"Request URL: {url}")
-            logger.debug(f"Request params: {params}")
 
-            async with session.get(url, params=params) as resp:
+            async with session.get(url) as resp:
                 logger.debug(f"Response status: {resp.status}")
 
                 if resp.status != 200:
