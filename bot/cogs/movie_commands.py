@@ -1,4 +1,4 @@
-"""Movie request commands"""
+"""Movie and TV show request commands"""
 
 import logging
 
@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.overseerr import Movie
+from bot.overseerr import Movie, TVShow, MediaItem
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class MovieCommands(commands.Cog):
 
         embed.add_field(
             name="/request <title>",
-            value="Search for and request a movie by title\nExample: `/request The Matrix`",
+            value="Search for and request movies or TV shows\nExample: `/request The Matrix` or `/request The Office`",
             inline=False,
         )
 
@@ -115,10 +115,10 @@ class MovieCommands(commands.Cog):
             await interaction.followup.send(embed=embed)
             logger.error(f"Overseerr health check failed: {e}")
 
-    @app_commands.command(name="request", description="Request a movie by title")
-    @app_commands.describe(title="Title of the movie to request")
-    async def request_movie(self, interaction: discord.Interaction, title: str):
-        """Request a movie by title"""
+    @app_commands.command(name="request", description="Request a movie or TV show")
+    @app_commands.describe(title="Title of the movie or TV show to request")
+    async def request_media(self, interaction: discord.Interaction, title: str):
+        """Request a movie or TV show by title"""
         await interaction.response.defer(ephemeral=True)
 
         # Check if user is authorized (if whitelist is configured)
@@ -147,28 +147,32 @@ class MovieCommands(commands.Cog):
                 f"User {interaction.user.name} ({interaction.user.id}) searching for: '{title}'"
             )
 
-            # Search for movies
-            movies = await self.bot.overseerr.search_movies(title)
+            # Search for movies and TV shows
+            media_items = await self.bot.overseerr.search_media(title)
 
-            if not movies:
-                logger.info(f"No movies found for query: '{title}'")
+            if not media_items:
+                logger.info(f"No results found for query: '{title}'")
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="❌ No Results",
-                        description=f"No movies found matching: **{title}**",
+                        description=f"No movies or TV shows found matching: **{title}**",
                         color=discord.Color.red(),
                     )
                 )
                 return
 
-            logger.info(f"Found {len(movies)} movie(s) for query: '{title}'")
+            logger.info(
+                f"Found {len(media_items)} result(s) for query: '{title}' "
+                f"({sum(1 for m in media_items if isinstance(m, Movie))} movies, "
+                f"{sum(1 for m in media_items if isinstance(m, TVShow))} TV shows)"
+            )
 
-            if len(movies) == 1:
+            if len(media_items) == 1:
                 # Single result - show details
-                await self._show_movie_details(interaction, movies[0])
+                await self._show_media_details(interaction, media_items[0])
             else:
                 # Multiple results - show selection
-                await self._show_movie_selection(interaction, movies)
+                await self._show_media_selection(interaction, media_items)
 
         except Exception as e:
             logger.error(
@@ -186,21 +190,34 @@ class MovieCommands(commands.Cog):
                 )
             )
 
-    async def _show_movie_selection(self, interaction: discord.Interaction, movies: list[Movie]):
-        """Display dropdown of movies"""
+    async def _show_media_selection(
+        self, interaction: discord.Interaction, media_items: list[MediaItem]
+    ):
+        """Display dropdown of movies and TV shows"""
         options = []
-        for movie in movies[:25]:  # Discord limit
-            label = self._format_movie_title(movie)
+        for media in media_items[:25]:  # Discord limit
+            # Create label with emoji and text type indicator
+            if isinstance(media, Movie):
+                type_indicator = "🎬 [Movie]"
+            else:  # TVShow
+                type_indicator = "📺 [TV]"
+
+            title_text = self._format_media_title(media)
+            label = f"{type_indicator} {title_text}"
+
+            # Store both TMDB ID and media type in value
+            value = f"{media.media_type}:{media.tmdb_id}"
+
             options.append(
                 discord.SelectOption(
                     label=label[:100],  # Discord limit
-                    value=str(movie.tmdb_id),
-                    description=movie.overview[:100] if movie.overview else None,
+                    value=value,
+                    description=media.overview[:100] if media.overview else None,
                 )
             )
 
         select = discord.ui.Select(
-            placeholder="Choose a movie...",
+            placeholder="Choose a movie or TV show...",
             options=options,
         )
 
@@ -212,60 +229,77 @@ class MovieCommands(commands.Cog):
                 return
 
             await select_interaction.response.defer()
-            tmdb_id = int(select_interaction.data["values"][0])
-            movie = await self.bot.overseerr.get_movie_by_id(tmdb_id)
+            # Parse media type and ID from value
+            media_type, tmdb_id_str = select_interaction.data["values"][0].split(":")
+            tmdb_id = int(tmdb_id_str)
+
+            # Fetch media details
+            media = await self.bot.overseerr.get_media_by_id(tmdb_id, media_type)
 
             logger.info(
                 f"User {select_interaction.user.name} (UID {select_interaction.user.id}) "
-                f"selected: '{movie.title}' ({movie.release_year or 'Unknown year'}) [TMDB ID: {movie.tmdb_id}]"
+                f"selected: '{media.title}' ({media.release_year or 'Unknown year'}) "
+                f"[{media_type.upper()}] [TMDB ID: {media.tmdb_id}]"
             )
 
-            await self._show_movie_details(interaction, movie)
+            await self._show_media_details(interaction, media)
 
         select.callback = select_callback
 
         view = discord.ui.View()
         view.add_item(select)
 
-        await interaction.followup.send("Please select a movie:", view=view)
+        await interaction.followup.send("Please select a movie or TV show:", view=view)
 
-    async def _show_movie_details(self, interaction: discord.Interaction, movie: Movie):
-        """Show movie details with request button"""
+    async def _show_media_details(self, interaction: discord.Interaction, media: MediaItem):
+        """Show media details with request button"""
+        media_type_label = "Movie" if isinstance(media, Movie) else "TV Show"
         logger.info(
-            f"Showing details for: '{movie.title}' ({movie.release_year or 'Unknown year'}) "
-            f"[TMDB ID: {movie.tmdb_id}] - Status: {movie.status.name}"
+            f"Showing details for: '{media.title}' ({media.release_year or 'Unknown year'}) "
+            f"[{media_type_label}] [TMDB ID: {media.tmdb_id}] - Status: {media.status.name}"
         )
 
+        # Add media type emoji to title
+        if isinstance(media, Movie):
+            title_prefix = "🎬"
+            year_label = "Release Year"
+        else:
+            title_prefix = "📺"
+            year_label = "First Aired"
+
         embed = discord.Embed(
-            title=movie.title,
-            description=movie.overview[:500] if movie.overview else "No description available",
+            title=f"{title_prefix} {media.title}",
+            description=media.overview[:500] if media.overview else "No description available",
             color=discord.Color.blue(),
         )
 
-        if movie.release_year:
-            embed.add_field(name="Release Year", value=movie.release_year)
+        if media.release_year:
+            embed.add_field(name=year_label, value=media.release_year)
 
-        if movie.poster_url:
-            embed.set_thumbnail(url=movie.poster_url)
+        if media.poster_url:
+            embed.set_thumbnail(url=media.poster_url)
 
         # Check status
-        if movie.available:
+        if media.available:
             embed.color = discord.Color.green()
             embed.add_field(name="Status", value="✅ Available", inline=False)
             await interaction.edit_original_response(embed=embed, view=None)
             return
 
-        if movie.requested:
+        if media.requested:
             embed.color = discord.Color.orange()
             embed.add_field(name="Status", value="⏳ Already Requested", inline=False)
             await interaction.edit_original_response(embed=embed, view=None)
             return
 
         # Create request button
+        button_label = "Request This Movie" if isinstance(media, Movie) else "Request This Show"
+        button_emoji = "🎬" if isinstance(media, Movie) else "📺"
+
         button = discord.ui.Button(
             style=discord.ButtonStyle.primary,
-            label="Request This Movie",
-            emoji="🎬",
+            label=button_label,
+            emoji=button_emoji,
         )
 
         async def button_callback(button_interaction: discord.Interaction):
@@ -276,7 +310,12 @@ class MovieCommands(commands.Cog):
                 return
 
             await button_interaction.response.defer()
-            result = await self.bot.overseerr.request_movie(movie.tmdb_id)
+
+            # Request based on media type
+            if isinstance(media, Movie):
+                result = await self.bot.overseerr.request_movie(media.tmdb_id)
+            else:  # TVShow - request all seasons by default
+                result = await self.bot.overseerr.request_tv(media.tmdb_id)
 
             if result.success:
                 # Add to notification tracking
@@ -284,22 +323,26 @@ class MovieCommands(commands.Cog):
                     self.bot.notifications.add_request(
                         user_id=button_interaction.user.id,
                         username=button_interaction.user.name,
-                        tmdb_id=movie.tmdb_id,
-                        title=movie.title,
+                        tmdb_id=media.tmdb_id,
+                        title=media.title,
                         is_4k=False,  # TODO: Add 4K support
                     )
 
+                success_message = (
+                    f"**{media.title}** has been requested successfully!\n\n"
+                    f"You'll receive a notification when it's available."
+                )
+
                 success_embed = discord.Embed(
                     title="✅ Request Submitted",
-                    description=f"**{movie.title}** has been requested successfully!\n\n"
-                    f"You'll receive a notification when it's available.",
+                    description=success_message,
                     color=discord.Color.green(),
                 )
                 await interaction.edit_original_response(embed=success_embed, view=None)
             else:
                 error_embed = discord.Embed(
                     title="❌ Request Failed",
-                    description=f"Failed to request **{movie.title}**: {result.error_message}",
+                    description=f"Failed to request **{media.title}**: {result.error_message}",
                     color=discord.Color.red(),
                 )
                 await interaction.edit_original_response(embed=error_embed, view=None)
@@ -311,11 +354,11 @@ class MovieCommands(commands.Cog):
 
         await interaction.edit_original_response(embed=embed, view=view)
 
-    def _format_movie_title(self, movie: Movie) -> str:
-        """Format movie title for display"""
-        if movie.release_year:
-            return f"{movie.title} ({movie.release_year})"
-        return movie.title
+    def _format_media_title(self, media: MediaItem) -> str:
+        """Format media title for display"""
+        if media.release_year:
+            return f"{media.title} ({media.release_year})"
+        return media.title
 
 
 async def setup(bot):

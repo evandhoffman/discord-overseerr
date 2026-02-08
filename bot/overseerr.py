@@ -33,6 +33,7 @@ class Movie:
     available: bool = False
     requested: bool = False
     status: MediaStatus = MediaStatus.UNKNOWN
+    media_type: str = "movie"
 
     @property
     def poster_url(self) -> str:
@@ -47,6 +48,49 @@ class Movie:
         if self.release_date and len(self.release_date) >= 4:
             return self.release_date[:4]
         return None
+
+
+@dataclass
+class TVShow:
+    """TV Show data model"""
+
+    tmdb_id: int
+    name: str
+    overview: str
+    first_air_date: str
+    poster_path: Optional[str]
+    available: bool = False
+    requested: bool = False
+    status: MediaStatus = MediaStatus.UNKNOWN
+    media_type: str = "tv"
+
+    @property
+    def poster_url(self) -> str:
+        """Full TMDB poster URL"""
+        if self.poster_path:
+            return f"https://image.tmdb.org/t/p/w500{self.poster_path}"
+        return ""
+
+    @property
+    def first_year(self) -> Optional[str]:
+        """Extract year from first air date"""
+        if self.first_air_date and len(self.first_air_date) >= 4:
+            return self.first_air_date[:4]
+        return None
+
+    @property
+    def title(self) -> str:
+        """Alias for name to match Movie interface"""
+        return self.name
+
+    @property
+    def release_year(self) -> Optional[str]:
+        """Alias for first_year to match Movie interface"""
+        return self.first_year
+
+
+# Union type for media items
+MediaItem = Movie | TVShow
 
 
 class MovieRequestResult:
@@ -118,19 +162,19 @@ class OverseerrClient:
         except aiohttp.ClientError as e:
             raise Exception(f"Connection failed: {e}")
 
-    async def search_movies(self, query: str, is_4k: bool = False) -> List[Movie]:
+    async def search_media(self, query: str, is_4k: bool = False) -> List[MediaItem]:
         """
-        Search for movies by title
+        Search for both movies and TV shows
 
         Args:
-            query: Movie title to search for
+            query: Search query
             is_4k: Whether to check 4K status
 
         Returns:
-            List of matching movies
+            List of matching media items (movies and TV shows)
         """
         try:
-            logger.debug(f"Searching for movies: query='{query}', is_4k={is_4k}")
+            logger.debug(f"Searching for media: query='{query}', is_4k={is_4k}")
             session = await self._get_session()
 
             # Manually URL encode the query to satisfy Overseerr's strict requirements
@@ -159,19 +203,39 @@ class OverseerrClient:
 
                 logger.debug(f"Found {len(results)} total results")
 
-                # Filter to movies only
-                movies = [
-                    self._convert_movie(item, is_4k)
-                    for item in results
-                    if item.get("mediaType") == "movie"
-                ]
+                # Convert both movies and TV shows
+                media_items = []
+                for item in results:
+                    media_type = item.get("mediaType")
+                    if media_type == "movie":
+                        media_items.append(self._convert_movie(item, is_4k))
+                    elif media_type == "tv":
+                        media_items.append(self._convert_tv(item, is_4k))
 
-                logger.info(f"Search for '{query}' returned {len(movies)} movie(s)")
+                logger.info(
+                    f"Search for '{query}' returned {len(media_items)} result(s) "
+                    f"({sum(1 for m in media_items if m.media_type == 'movie')} movies, "
+                    f"{sum(1 for m in media_items if m.media_type == 'tv')} TV shows)"
+                )
 
-                return movies
+                return media_items
         except Exception as e:
-            logger.error(f"Error searching movies for query '{query}': {e}", exc_info=True)
+            logger.error(f"Error searching media for query '{query}': {e}", exc_info=True)
             raise
+
+    async def search_movies(self, query: str, is_4k: bool = False) -> List[Movie]:
+        """
+        Search for movies only (kept for backwards compatibility)
+
+        Args:
+            query: Movie title to search for
+            is_4k: Whether to check 4K status
+
+        Returns:
+            List of matching movies
+        """
+        all_media = await self.search_media(query, is_4k)
+        return [item for item in all_media if isinstance(item, Movie)]
 
     async def get_movie_by_id(self, tmdb_id: int, is_4k: bool = False) -> Movie:
         """
@@ -198,6 +262,52 @@ class OverseerrClient:
             logger.error(f"Error getting movie {tmdb_id}: {e}")
             raise
 
+    async def get_tv_by_id(self, tmdb_id: int, is_4k: bool = False) -> TVShow:
+        """
+        Get TV show details by TMDB ID
+
+        Args:
+            tmdb_id: TheMovieDB ID
+            is_4k: Whether to check 4K status
+
+        Returns:
+            TV show details
+        """
+        try:
+            session = await self._get_session()
+            url = f"{self.base_url}tv/{tmdb_id}"
+
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    raise Exception(f"TV show not found: {tmdb_id}")
+
+                data = await resp.json()
+                return self._convert_tv(data, is_4k)
+        except Exception as e:
+            logger.error(f"Error getting TV show {tmdb_id}: {e}")
+            raise
+
+    async def get_media_by_id(
+        self, tmdb_id: int, media_type: str, is_4k: bool = False
+    ) -> MediaItem:
+        """
+        Get media details by TMDB ID and type
+
+        Args:
+            tmdb_id: TheMovieDB ID
+            media_type: 'movie' or 'tv'
+            is_4k: Whether to check 4K status
+
+        Returns:
+            Media details (Movie or TVShow)
+        """
+        if media_type == "movie":
+            return await self.get_movie_by_id(tmdb_id, is_4k)
+        elif media_type == "tv":
+            return await self.get_tv_by_id(tmdb_id, is_4k)
+        else:
+            raise ValueError(f"Unknown media type: {media_type}")
+
     async def request_movie(
         self,
         tmdb_id: int,
@@ -215,6 +325,50 @@ class OverseerrClient:
         Returns:
             MovieRequestResult indicating success/failure
         """
+        return await self._request_media(tmdb_id, "movie", user_id, is_4k)
+
+    async def request_tv(
+        self,
+        tmdb_id: int,
+        user_id: Optional[str] = None,
+        is_4k: bool = False,
+        seasons: Optional[List[int]] = None,
+    ) -> MovieRequestResult:
+        """
+        Request a TV show in Overseerr
+
+        Args:
+            tmdb_id: TheMovieDB ID
+            user_id: Overseerr user ID (optional)
+            is_4k: Request 4K version
+            seasons: List of season numbers to request (None = all seasons)
+
+        Returns:
+            MovieRequestResult indicating success/failure
+        """
+        return await self._request_media(tmdb_id, "tv", user_id, is_4k, seasons)
+
+    async def _request_media(
+        self,
+        tmdb_id: int,
+        media_type: str,
+        user_id: Optional[str] = None,
+        is_4k: bool = False,
+        seasons: Optional[List[int]] = None,
+    ) -> MovieRequestResult:
+        """
+        Internal method to request media in Overseerr
+
+        Args:
+            tmdb_id: TheMovieDB ID
+            media_type: 'movie' or 'tv'
+            user_id: Overseerr user ID (optional)
+            is_4k: Request 4K version
+            seasons: For TV shows, list of season numbers (None = all)
+
+        Returns:
+            MovieRequestResult indicating success/failure
+        """
         try:
             session = await self._get_session()
             url = f"{self.base_url}request"
@@ -222,9 +376,13 @@ class OverseerrClient:
             # Build request payload
             payload: Dict[str, Any] = {
                 "mediaId": tmdb_id,
-                "mediaType": "movie",
+                "mediaType": media_type,
                 "is4k": is_4k,
             }
+
+            # Add seasons for TV shows (if not specified, defaults to all)
+            if media_type == "tv" and seasons is not None:
+                payload["seasons"] = seasons
 
             # Add user ID if provided
             if user_id:
@@ -245,14 +403,45 @@ class OverseerrClient:
 
                 return MovieRequestResult(success=True)
         except Exception as e:
-            logger.error(f"Error requesting movie {tmdb_id}: {e}")
+            logger.error(f"Error requesting {media_type} {tmdb_id}: {e}")
             return MovieRequestResult(success=False, error_message=str(e))
 
     def _convert_movie(self, data: Dict[str, Any], is_4k: bool) -> Movie:
         """Convert Overseerr JSON to Movie object"""
         media_info = data.get("mediaInfo")
+        status, available, requested = self._parse_media_status(media_info, is_4k)
 
-        # Determine status based on 4K or regular
+        return Movie(
+            tmdb_id=data.get("id"),
+            title=data.get("title", "Unknown"),
+            overview=data.get("overview", ""),
+            release_date=data.get("releaseDate", ""),
+            poster_path=data.get("posterPath"),
+            available=available,
+            requested=requested,
+            status=status,
+        )
+
+    def _convert_tv(self, data: Dict[str, Any], is_4k: bool) -> TVShow:
+        """Convert Overseerr JSON to TVShow object"""
+        media_info = data.get("mediaInfo")
+        status, available, requested = self._parse_media_status(media_info, is_4k)
+
+        return TVShow(
+            tmdb_id=data.get("id"),
+            name=data.get("name", "Unknown"),
+            overview=data.get("overview", ""),
+            first_air_date=data.get("firstAirDate", ""),
+            poster_path=data.get("posterPath"),
+            available=available,
+            requested=requested,
+            status=status,
+        )
+
+    def _parse_media_status(
+        self, media_info: Optional[Dict[str, Any]], is_4k: bool
+    ) -> tuple[MediaStatus, bool, bool]:
+        """Parse media status from Overseerr response"""
         if media_info:
             if is_4k:
                 status_value = media_info.get("status4k", MediaStatus.UNKNOWN)
@@ -276,13 +465,4 @@ class OverseerrClient:
             available = False
             requested = False
 
-        return Movie(
-            tmdb_id=data.get("id"),
-            title=data.get("title", "Unknown"),
-            overview=data.get("overview", ""),
-            release_date=data.get("releaseDate", ""),
-            poster_path=data.get("posterPath"),
-            available=available,
-            requested=requested,
-            status=status,
-        )
+        return status, available, requested
