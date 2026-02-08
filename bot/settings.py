@@ -49,6 +49,7 @@ class DiscordSettings(BaseModel):
     auto_notify_requesters: bool = True
     notification_mode: str = "PrivateMessages"  # or "Channels"
     notification_channels: List[int] = Field(default_factory=list)
+    notification_check_interval: int = 5  # Minutes between availability checks
 
 
 class BotSettings(BaseSettings):
@@ -71,6 +72,7 @@ class BotSettings(BaseSettings):
     discord_bot_token: Optional[str] = Field(None, alias="DISCORD_BOT_TOKEN")
     discord_client_id: Optional[str] = Field(None, alias="DISCORD_CLIENT_ID")
     discord_authorized_users: Optional[str] = Field(None, alias="DISCORD_AUTHORIZED_USERS")
+    notification_check_interval: Optional[int] = Field(None, alias="NOTIFICATION_CHECK_INTERVAL")
     overseerr_hostname: Optional[str] = Field(None, alias="OVERSEERR_HOSTNAME")
     overseerr_port: Optional[int] = Field(None, alias="OVERSEERR_PORT")
     overseerr_api_key: Optional[str] = Field(None, alias="OVERSEERR_API_KEY")
@@ -88,6 +90,8 @@ class BotSettings(BaseSettings):
                 int(uid.strip()) for uid in self.discord_authorized_users.split(",") if uid.strip()
             ]
             self.discord.authorized_users = user_ids
+        if self.notification_check_interval:
+            self.discord.notification_check_interval = self.notification_check_interval
         if self.overseerr_hostname:
             self.overseerr.hostname = self.overseerr_hostname
         if self.overseerr_port:
