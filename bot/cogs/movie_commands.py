@@ -249,9 +249,20 @@ class MovieCommands(commands.Cog):
             result = await self.bot.overseerr.request_movie(movie.tmdb_id)
 
             if result.success:
+                # Add to notification tracking
+                if self.bot.notifications:
+                    self.bot.notifications.add_request(
+                        user_id=button_interaction.user.id,
+                        username=button_interaction.user.name,
+                        tmdb_id=movie.tmdb_id,
+                        title=movie.title,
+                        is_4k=False,  # TODO: Add 4K support
+                    )
+
                 success_embed = discord.Embed(
                     title="✅ Request Submitted",
-                    description=f"**{movie.title}** has been requested successfully!",
+                    description=f"**{movie.title}** has been requested successfully!\n\n"
+                    f"You'll receive a notification when it's available.",
                     color=discord.Color.green(),
                 )
                 await interaction.edit_original_response(embed=success_embed, view=None)
