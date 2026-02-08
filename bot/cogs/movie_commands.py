@@ -26,7 +26,7 @@ class MovieCommands(commands.Cog):
                 description=f"Bot is alive and responding.\nLatency: {round(self.bot.latency * 1000)}ms",
                 color=discord.Color.green(),
             ),
-            ephemeral=True
+            ephemeral=True,
         )
 
     @app_commands.command(name="help", description="Show available commands and how to use them")
@@ -37,101 +37,81 @@ class MovieCommands(commands.Cog):
             description="Request movies and TV shows directly from Discord!",
             color=discord.Color.blue(),
         )
-        
+
         embed.add_field(
             name="/request <title>",
             value="Search for and request a movie by title\nExample: `/request The Matrix`",
-            inline=False
+            inline=False,
         )
-        
+
         embed.add_field(
-            name="/ping",
-            value="Check if the bot is alive and responding",
-            inline=False
+            name="/ping", value="Check if the bot is alive and responding", inline=False
         )
-        
+
         embed.add_field(
             name="/overseerr-health",
             value="Check Overseerr connection and health status",
-            inline=False
+            inline=False,
         )
-        
-        embed.add_field(
-            name="/help",
-            value="Show this help message",
-            inline=False
-        )
-        
+
+        embed.add_field(name="/help", value="Show this help message", inline=False)
+
         # Add authorization info if whitelist is enabled
         authorized_users = self.bot.settings.discord.authorized_users
         if authorized_users:
             embed.add_field(
                 name="ℹ️ Authorization",
                 value="This bot is restricted to authorized users only.",
-                inline=False
+                inline=False,
             )
-        
+
         embed.set_footer(text="Powered by Overseerr")
-        
+
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="overseerr-health", description="Check Overseerr connection and health")
+    @app_commands.command(
+        name="overseerr-health", description="Check Overseerr connection and health"
+    )
     async def overseerr_health(self, interaction: discord.Interaction):
         """Check if Overseerr is reachable and healthy"""
         await interaction.response.defer(ephemeral=True)
-        
+
         try:
             # Test connection
             await self.bot.overseerr.test_connection()
-            
+
             # Get additional info
             overseerr_url = self.bot.settings.overseerr.base_url.rstrip("/api/v1/")
-            
+
             embed = discord.Embed(
                 title="✅ Overseerr Health Check",
                 description="Overseerr is reachable and healthy!",
                 color=discord.Color.green(),
             )
-            
-            embed.add_field(
-                name="Overseerr URL",
-                value=overseerr_url,
-                inline=False
-            )
-            
-            embed.add_field(
-                name="Connection",
-                value="✅ Connected",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="API Status",
-                value="✅ Responding",
-                inline=True
-            )
-            
+
+            embed.add_field(name="Overseerr URL", value=overseerr_url, inline=False)
+
+            embed.add_field(name="Connection", value="✅ Connected", inline=True)
+
+            embed.add_field(name="API Status", value="✅ Responding", inline=True)
+
             await interaction.followup.send(embed=embed)
-            
+
         except Exception as e:
             embed = discord.Embed(
                 title="❌ Overseerr Health Check Failed",
                 description="Unable to connect to Overseerr",
                 color=discord.Color.red(),
             )
-            
-            embed.add_field(
-                name="Error",
-                value=str(e),
-                inline=False
-            )
-            
+
+            embed.add_field(name="Error", value=str(e), inline=False)
+
             embed.add_field(
                 name="Configured URL",
                 value=self.bot.settings.overseerr.base_url.rstrip("/api/v1/"),
-                inline=False
+                inline=False,
             )
-            
+
             await interaction.followup.send(embed=embed)
             logger.error(f"Overseerr health check failed: {e}")
 
@@ -151,7 +131,9 @@ class MovieCommands(commands.Cog):
                     color=discord.Color.red(),
                 )
             )
-            logger.warning(f"Unauthorized request attempt from user {interaction.user.id} ({interaction.user.name})")
+            logger.warning(
+                f"Unauthorized request attempt from user {interaction.user.id} ({interaction.user.name})"
+            )
             return
 
         try:
@@ -185,9 +167,7 @@ class MovieCommands(commands.Cog):
                 )
             )
 
-    async def _show_movie_selection(
-        self, interaction: discord.Interaction, movies: list[Movie]
-    ):
+    async def _show_movie_selection(self, interaction: discord.Interaction, movies: list[Movie]):
         """Display dropdown of movies"""
         options = []
         for movie in movies[:25]:  # Discord limit

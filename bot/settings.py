@@ -85,9 +85,7 @@ class BotSettings(BaseSettings):
         if self.discord_authorized_users:
             # Parse comma-separated list of user IDs
             user_ids = [
-                int(uid.strip())
-                for uid in self.discord_authorized_users.split(",")
-                if uid.strip()
+                int(uid.strip()) for uid in self.discord_authorized_users.split(",") if uid.strip()
             ]
             self.discord.authorized_users = user_ids
         if self.overseerr_hostname:
@@ -157,9 +155,7 @@ class SettingsManager:
                     "port": self.settings.overseerr.port,
                     "use_ssl": self.settings.overseerr.use_ssl,
                 },
-                "movie_categories": [
-                    cat.model_dump() for cat in self.settings.movie_categories
-                ],
+                "movie_categories": [cat.model_dump() for cat in self.settings.movie_categories],
             }
 
             with open(self.config_path, "w") as f:
