@@ -123,18 +123,24 @@ class MovieCommands(commands.Cog):
 
         # Check if user is authorized (if whitelist is configured)
         authorized_users = self.bot.settings.discord.authorized_users
-        if authorized_users and interaction.user.id not in authorized_users:
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="🚫 Not Authorized",
-                    description="Sorry, you're not authorized to use this bot.",
-                    color=discord.Color.red(),
+        if authorized_users:
+            if interaction.user.id not in authorized_users:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="🚫 Not Authorized",
+                        description="Sorry, you're not authorized to use this bot.",
+                        color=discord.Color.red(),
+                    )
                 )
-            )
-            logger.warning(
-                f"Unauthorized request attempt from user {interaction.user.id} ({interaction.user.name})"
-            )
-            return
+                logger.warning(
+                    f"Unauthorized request attempt from user {interaction.user.name} "
+                    f"(UID {interaction.user.id})"
+                )
+                return
+            else:
+                logger.info(
+                    f"User {interaction.user.name} (UID {interaction.user.id}) is authorized"
+                )
 
         try:
             logger.info(
