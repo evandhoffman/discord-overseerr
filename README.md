@@ -130,7 +130,7 @@ You'll need:
    Fill in the values you collected:
    ```env
    # From Discord Developer Portal
-   DISCORD_BOT_TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4.GhIjKl.MnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWx
+   DISCORD_BOT_TOKEN=xxxxxxxxxx
    DISCORD_CLIENT_ID=1234567890123456789
 
    # From Overseerr Settings
