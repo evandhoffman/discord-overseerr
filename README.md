@@ -181,8 +181,46 @@ python -m bot.main
 
 2. **Test in Discord**
    - Go to your Discord server
-   - Type `/` and you should see the `/request` command appear
-   - Try: `/request The Matrix`
+   - Type `/` and you should see the bot's commands appear
+
+### Step 4: Available Commands
+
+Once your bot is running, you can use these slash commands:
+
+#### `/ping` - Bot Health Check
+Verify the bot is alive and responding.
+```
+/ping
+```
+Returns: "🏓 Pong!" with latency information
+
+#### `/overseerr-health` - Overseerr Connection Check
+Verify the Overseerr connection is working.
+```
+/overseerr-health
+```
+Returns: Connection status, Overseerr URL, and API health
+
+#### `/help` - Command Reference
+Show all available commands and how to use them.
+```
+/help
+```
+Returns: Complete command reference with examples
+
+#### `/request <title>` - Request a Movie
+Search for and request a movie.
+```
+/request The Matrix
+```
+Flow:
+1. Bot searches Overseerr for matching movies
+2. Select the correct movie from the dropdown (if multiple results)
+3. Review movie details (title, year, description, availability)
+4. Click "Request This Movie" button
+5. Receive confirmation or error message
+
+**Note**: All responses are ephemeral (only visible to you) for privacy.
 
 🎉 **Congratulations!** Your bot is now running!
 
@@ -277,17 +315,27 @@ To restrict bot access to specific Discord users:
 
 ## Usage
 
-### Slash Commands
+### Available Slash Commands
 
-- `/request <title>` - Search and request a movie
+| Command | Description | Example |
+|---------|-------------|----------|
+| `/ping` | Check if bot is alive | `/ping` |
+| `/overseerr-health` | Check Overseerr connection | `/overseerr-health` |
+| `/help` | Show command reference | `/help` |
+| `/request <title>` | Search and request a movie | `/request Inception` |
 
-### Example
+### Request Workflow
 
 1. Type `/request The Matrix`
 2. Select the correct movie from the dropdown (if multiple results)
-3. Review movie details
+3. Review movie details (poster, description, release year, status)
 4. Click "Request This Movie" button
-5. Receive confirmation
+5. Receive confirmation or error message
+
+**Status Indicators**:
+- ✅ **Available**: Movie is already downloaded and ready to watch
+- ⏳ **Already Requested**: Movie has been requested and is pending
+- 🎬 **Request Button**: Movie is available to request
 
 ## Development
 
