@@ -1,0 +1,151 @@
+"""Main entry point for the Discord Overseerr bot"""
+
+import asyncio
+import logging
+import sys
+from pathlib import Path
+
+import discord
+from discord.ext import commands
+
+from bot.settings import SettingsManager
+from bot.overseerr import OverseerrClient
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("logs/bot.log", encoding="utf-8"),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+
+class MovieBot(commands.Bot):
+    """Discord bot for movie and TV show requests via Overseerr"""
+
+    def __init__(self, settings_manager: SettingsManager):
+        self.settings_manager = settings_manager
+        self.settings = settings_manager.load()
+
+        # Configure intents
+        intents = discord.Intents.default()
+        intents.message_content = True
+
+        super().__init__(
+            command_prefix="!",  # Fallback prefix
+            intents=intents,
+            help_command=None,  # We'll create a custom help command
+        )
+
+        self.overseerr: OverseerrClient = None
+
+    async def setup_hook(self):
+        """Called when the bot is starting up"""
+        logger.info("Starting bot setup...")
+
+        # Initialize Overseerr client
+        self.overseerr = OverseerrClient(
+            hostname=self.settings.overseerr.hostname,
+            port=self.settings.overseerr.port,
+            api_key=self.settings.overseerr.api_key,
+            use_ssl=self.settings.overseerr.use_ssl,
+        )
+
+        # Test Overseerr connection
+        try:
+            await self.overseerr.test_connection()
+            logger.info("✅ Overseerr connection successful")
+        except Exception as e:
+            logger.error(f"❌ Overseerr connection failed: {e}")
+            logger.error("Bot will start but requests will fail until Overseerr is configured")
+
+        # Load extensions/cogs
+        await self.load_extensions()
+
+        # Sync slash commands with Discord
+        try:
+            synced = await self.tree.sync()
+            logger.info(f"✅ Synced {len(synced)} slash command(s)")
+        except Exception as e:
+            logger.error(f"❌ Failed to sync commands: {e}")
+
+    async def load_extensions(self):
+        """Load bot extensions/cogs"""
+        extensions = [
+            "bot.cogs.movie_commands",
+            # "bot.cogs.tv_commands",  # Future extension
+            # "bot.cogs.admin_commands",  # Future extension
+        ]
+
+        for extension in extensions:
+            try:
+                await self.load_extension(extension)
+                logger.info(f"✅ Loaded extension: {extension}")
+            except Exception as e:
+                logger.error(f"❌ Failed to load extension {extension}: {e}")
+
+    async def on_ready(self):
+        """Called when bot successfully connects to Discord"""
+        logger.info(f"🤖 Bot logged in as {self.user} (ID: {self.user.id})")
+        logger.info(f"📊 Connected to {len(self.guilds)} guild(s)")
+
+        # Set bot status
+        await self.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.listening,
+                name="/request | /help",
+            )
+        )
+
+    async def on_error(self, event_method: str, *args, **kwargs):
+        """Global error handler"""
+        logger.exception(f"Error in {event_method}")
+
+    async def close(self):
+        """Cleanup when bot shuts down"""
+        logger.info("Shutting down bot...")
+        if self.overseerr:
+            await self.overseerr.close()
+        await super().close()
+
+
+async def main():
+    """Main entry point"""
+    # Ensure logs directory exists
+    Path("logs").mkdir(exist_ok=True)
+
+    # Load settings
+    settings_manager = SettingsManager()
+    settings = settings_manager.load()
+
+    # Validate required configuration
+    if not settings.discord.bot_token:
+        logger.error("❌ DISCORD_BOT_TOKEN not configured!")
+        logger.error("Please set the token in .env or config/settings.json")
+        sys.exit(1)
+
+    if not settings.overseerr.api_key:
+        logger.warning("⚠️  OVERSEERR_API_KEY not configured!")
+        logger.warning("Bot will start but movie requests will fail")
+
+    # Create and run bot
+    bot = MovieBot(settings_manager)
+
+    try:
+        async with bot:
+            await bot.start(settings.discord.bot_token)
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt, shutting down...")
+    except Exception as e:
+        logger.exception(f"Fatal error: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
