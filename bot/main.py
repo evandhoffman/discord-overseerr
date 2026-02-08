@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from bot.settings import SettingsManager
 from bot.overseerr import OverseerrClient
+from bot.notifications import NotificationManager
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,7 @@ class MovieBot(commands.Bot):
         )
 
         self.overseerr: OverseerrClient = None
+        self.notifications: NotificationManager = None
 
     async def setup_hook(self):
         """Called when the bot is starting up"""
@@ -61,6 +63,10 @@ class MovieBot(commands.Bot):
         except Exception as e:
             logger.error(f"❌ Overseerr connection failed: {e}")
             logger.error("Bot will start but requests will fail until Overseerr is configured")
+
+        # Initialize notification manager
+        self.notifications = NotificationManager(self)
+        logger.info("✅ Notification manager initialized")
 
         # Load extensions/cogs
         await self.load_extensions()
@@ -92,6 +98,11 @@ class MovieBot(commands.Bot):
         logger.info(f"🤖 Bot logged in as {self.user} (ID: {self.user.id})")
         logger.info(f"📊 Connected to {len(self.guilds)} guild(s)")
 
+        # Start notification monitoring
+        if self.notifications:
+            self.notifications.start_monitoring()
+            logger.info("✅ Started notification monitoring")
+
         # Set bot status
         await self.change_presence(
             activity=discord.Activity(
@@ -107,6 +118,8 @@ class MovieBot(commands.Bot):
     async def close(self):
         """Cleanup when bot shuts down"""
         logger.info("Shutting down bot...")
+        if self.notifications:
+            self.notifications.stop_monitoring()
         if self.overseerr:
             await self.overseerr.close()
         await super().close()

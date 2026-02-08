@@ -7,7 +7,8 @@ A containerized Discord bot that integrates with Overseerr to enable movie and T
 - 🎬 Request movies via Discord slash commands
 - 🔍 Search and browse movie results
 - ✅ Check movie availability status
-- 🐳 Fully containerized with Docker
+- � Automatic notifications when requested content is ready
+- �🐳 Fully containerized with Docker
 - ⚙️ Environment-based configuration
 - 📦 Built with Python and `uv` for fast dependency management
 
@@ -313,6 +314,19 @@ To restrict bot access to specific Discord users:
 
 **Note**: Unauthorized users will receive a "Not Authorized" message when trying to use bot commands.
 
+#### Notification System
+
+The bot automatically tracks requests and sends notifications when content becomes available:
+
+- **Tracking File**: `config/notifications.json` stores pending requests
+- **Check Interval**: Bot checks Overseerr every 10 minutes
+- **Persistence**: Survives bot restarts - pending notifications are saved
+- **Auto-cleanup**: Completed requests are automatically removed
+
+**Manual Management**:
+- View pending requests: `cat config/notifications.json`
+- Clear all pending: `rm config/notifications.json` (bot will recreate it)
+
 ## Usage
 
 ### Available Slash Commands
@@ -336,6 +350,21 @@ To restrict bot access to specific Discord users:
 - ✅ **Available**: Movie is already downloaded and ready to watch
 - ⏳ **Already Requested**: Movie has been requested and is pending
 - 🎬 **Request Button**: Movie is available to request
+
+### Automatic Notifications
+
+When you request a movie, the bot automatically tracks your request and monitors Overseerr for completion. You'll receive a **Direct Message** when your content is ready with:
+
+- Movie title
+- Time elapsed from request to completion (e.g., "2 hours, 15 minutes")
+- Confirmation that it's ready to watch
+
+**How it works**:
+1. Bot checks Overseerr every 10 minutes for status updates
+2. When your requested movie becomes available, you get a DM
+3. Notification includes how long the request took to complete
+
+**Note**: Make sure you have DMs enabled from server members, or you won't receive notifications!
 
 ## Development
 
@@ -428,6 +457,18 @@ docker-compose down -v
 **Problem**: "Movie already requested" but it's not visible
 - **Solution**: Check if another user already requested it in Overseerr
 - **Solution**: Verify you're checking the correct quality profile (4K vs HD)
+
+### Notification Issues
+
+**Problem**: Not receiving notifications when content is ready
+- **Solution**: Ensure you have DMs enabled: Server Settings → Privacy Settings → Allow direct messages from server members
+- **Solution**: Check if you've blocked the bot
+- **Solution**: Verify bot is running: Check logs for "Started notification monitoring"
+- **Solution**: Check pending requests: `cat config/notifications.json`
+
+**Problem**: Notifications arrive late
+- **Solution**: Normal behavior - bot checks every 10 minutes
+- **Solution**: Check bot logs to see when checks are happening
 
 ## Contributing
 

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import aiohttp
 
@@ -129,17 +130,34 @@ class OverseerrClient:
             List of matching movies
         """
         try:
+            logger.debug(f"Searching for movies: query='{query}', is_4k={is_4k}")
             session = await self._get_session()
-            url = f"{self.base_url}search"
-            params = {"query": query, "page": 1, "language": "en"}
 
-            async with session.get(url, params=params) as resp:
+            # Manually URL encode the query to satisfy Overseerr's strict requirements
+            encoded_query = quote(query, safe="")
+            url = f"{self.base_url}search?query={encoded_query}&page=1&language=en"
+
+            logger.debug(f"Request URL: {url}")
+
+            async with session.get(url) as resp:
+                logger.debug(f"Response status: {resp.status}")
+
                 if resp.status != 200:
-                    error = await resp.json()
-                    raise Exception(f"Search failed: {error.get('message', 'Unknown error')}")
+                    error_text = await resp.text()
+                    logger.error(f"Search failed with status {resp.status}: {error_text}")
+
+                    try:
+                        error = await resp.json()
+                        error_message = error.get("message", "Unknown error")
+                    except:
+                        error_message = error_text
+
+                    raise Exception(f"Search failed: {error_message}")
 
                 data = await resp.json()
                 results = data.get("results", [])
+
+                logger.debug(f"Found {len(results)} total results")
 
                 # Filter to movies only
                 movies = [
@@ -148,9 +166,11 @@ class OverseerrClient:
                     if item.get("mediaType") == "movie"
                 ]
 
+                logger.info(f"Search for '{query}' returned {len(movies)} movie(s)")
+
                 return movies
         except Exception as e:
-            logger.error(f"Error searching movies: {e}")
+            logger.error(f"Error searching movies for query '{query}': {e}", exc_info=True)
             raise
 
     async def get_movie_by_id(self, tmdb_id: int, is_4k: bool = False) -> Movie:

@@ -123,24 +123,35 @@ class MovieCommands(commands.Cog):
 
         # Check if user is authorized (if whitelist is configured)
         authorized_users = self.bot.settings.discord.authorized_users
-        if authorized_users and interaction.user.id not in authorized_users:
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="🚫 Not Authorized",
-                    description="Sorry, you're not authorized to use this bot.",
-                    color=discord.Color.red(),
+        if authorized_users:
+            if interaction.user.id not in authorized_users:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="🚫 Not Authorized",
+                        description="Sorry, you're not authorized to use this bot.",
+                        color=discord.Color.red(),
+                    )
                 )
-            )
-            logger.warning(
-                f"Unauthorized request attempt from user {interaction.user.id} ({interaction.user.name})"
-            )
-            return
+                logger.warning(
+                    f"Unauthorized request attempt from user {interaction.user.name} "
+                    f"(UID {interaction.user.id})"
+                )
+                return
+            else:
+                logger.info(
+                    f"User {interaction.user.name} (UID {interaction.user.id}) is authorized"
+                )
 
         try:
+            logger.info(
+                f"User {interaction.user.name} ({interaction.user.id}) searching for: '{title}'"
+            )
+
             # Search for movies
             movies = await self.bot.overseerr.search_movies(title)
 
             if not movies:
+                logger.info(f"No movies found for query: '{title}'")
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="❌ No Results",
@@ -150,6 +161,8 @@ class MovieCommands(commands.Cog):
                 )
                 return
 
+            logger.info(f"Found {len(movies)} movie(s) for query: '{title}'")
+
             if len(movies) == 1:
                 # Single result - show details
                 await self._show_movie_details(interaction, movies[0])
@@ -158,11 +171,17 @@ class MovieCommands(commands.Cog):
                 await self._show_movie_selection(interaction, movies)
 
         except Exception as e:
-            logger.error(f"Error in request command: {e}")
+            logger.error(
+                f"Error in request command for user {interaction.user.name} "
+                f"searching '{title}': {e}",
+                exc_info=True,
+            )
             await interaction.followup.send(
                 embed=discord.Embed(
                     title="❌ Error",
-                    description=f"An error occurred: {str(e)}",
+                    description=f"An error occurred while searching for **{title}**.\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"Please try again or contact an administrator if the problem persists.",
                     color=discord.Color.red(),
                 )
             )
@@ -249,9 +268,20 @@ class MovieCommands(commands.Cog):
             result = await self.bot.overseerr.request_movie(movie.tmdb_id)
 
             if result.success:
+                # Add to notification tracking
+                if self.bot.notifications:
+                    self.bot.notifications.add_request(
+                        user_id=button_interaction.user.id,
+                        username=button_interaction.user.name,
+                        tmdb_id=movie.tmdb_id,
+                        title=movie.title,
+                        is_4k=False,  # TODO: Add 4K support
+                    )
+
                 success_embed = discord.Embed(
                     title="✅ Request Submitted",
-                    description=f"**{movie.title}** has been requested successfully!",
+                    description=f"**{movie.title}** has been requested successfully!\n\n"
+                    f"You'll receive a notification when it's available.",
                     color=discord.Color.green(),
                 )
                 await interaction.edit_original_response(embed=success_embed, view=None)
