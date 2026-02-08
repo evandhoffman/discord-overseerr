@@ -98,8 +98,14 @@ class MovieBot(commands.Bot):
         logger.info(f"🤖 Bot logged in as {self.user} (ID: {self.user.id})")
         logger.info(f"📊 Connected to {len(self.guilds)} guild(s)")
 
-        # Start notification monitoring
+        # Check pending notifications immediately on startup
         if self.notifications:
+            try:
+                await self.notifications.check_pending_on_startup()
+            except Exception as e:
+                logger.error(f"Error checking pending notifications on startup: {e}")
+
+            # Start background monitoring task
             self.notifications.start_monitoring()
             logger.info("✅ Started notification monitoring")
 

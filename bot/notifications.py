@@ -140,6 +140,17 @@ class NotificationManager:
         self.save_notifications()
         logger.info(f"✅ Added notification tracking for {username}: {title}")
 
+    async def check_pending_on_startup(self):
+        """Check all pending requests immediately on startup"""
+        if not self.pending_requests:
+            logger.info("No pending notifications to check on startup")
+            return
+
+        logger.info(
+            f"🔍 Checking {len(self.pending_requests)} pending request(s) from saved state on startup"
+        )
+        await self._check_and_notify()
+
     def start_monitoring(self):
         """Start the background task to monitor requests"""
         if not self.check_availability.is_running():
@@ -152,17 +163,11 @@ class NotificationManager:
             self.check_availability.cancel()
             logger.info("Stopped notification monitoring task")
 
-    @tasks.loop(minutes=10)
-    async def check_availability(self):
-        """Periodically check if requested content is now available"""
-        if not self.pending_requests:
-            return
-
-        logger.info(f"Checking availability for {len(self.pending_requests)} pending request(s)")
-
+    async def _check_and_notify(self):
+        """Core logic to check availability and notify users"""
         completed_keys = []
 
-        for key, request in self.pending_requests.items():
+        for key, request in list(self.pending_requests.items()):
             try:
                 # Check movie status in Overseerr
                 movie = await self.bot.overseerr.get_movie_by_id(
@@ -173,6 +178,11 @@ class NotificationManager:
                     # Content is now available - notify user
                     await self.notify_user(request)
                     completed_keys.append(key)
+                else:
+                    logger.debug(
+                        f"Request still pending: {request.title} for {request.username} "
+                        f"(Status: {movie.status.name})"
+                    )
 
             except Exception as e:
                 logger.error(f"Error checking availability for {request.title}: {e}")
@@ -184,6 +194,17 @@ class NotificationManager:
         if completed_keys:
             self.save_notifications()
             logger.info(f"✅ Notified {len(completed_keys)} user(s) of completed requests")
+
+        return len(completed_keys)
+
+    @tasks.loop(minutes=10)
+    async def check_availability(self):
+        """Periodically check if requested content is now available"""
+        if not self.pending_requests:
+            return
+
+        logger.info(f"Checking availability for {len(self.pending_requests)} pending request(s)")
+        await self._check_and_notify()
 
     async def notify_user(self, request: PendingRequest):
         """Send notification to user that their request is complete"""
