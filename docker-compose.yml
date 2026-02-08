@@ -29,8 +29,8 @@ services:
     
     volumes:
       # Persist configuration and data
-      - ./config:/app/config
-      - ./logs:/app/logs
+      - ${CONFIG_PATH:-./config}:/app/config
+      - ${LOGS_PATH:-./logs}:/app/logs
     
     # Uncomment if you need to connect to Overseerr on host network
     # network_mode: host
