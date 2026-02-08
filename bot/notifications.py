@@ -167,25 +167,43 @@ class NotificationManager:
         """Core logic to check availability and notify users"""
         completed_keys = []
 
+        logger.info(
+            f"━━━━━━━━━━ Checking {len(self.pending_requests)} Pending Request(s) ━━━━━━━━━━"
+        )
+
         for key, request in list(self.pending_requests.items()):
             try:
+                # Log request details
+                request_time = datetime.fromisoformat(request.timestamp)
+                time_ago = request.get_elapsed_time()
+                human_time = request_time.strftime("%Y-%m-%d %H:%M:%S")
+
+                logger.info(f"  📋 Checking: '{request.title}' [TMDB ID: {request.tmdb_id}]")
+                logger.info(f"     Requested by: {request.username} (UID {request.user_id})")
+                logger.info(f"     Requested at: {human_time} ({time_ago} ago)")
+
                 # Check movie status in Overseerr
                 movie = await self.bot.overseerr.get_movie_by_id(
                     request.tmdb_id, is_4k=request.is_4k
                 )
 
+                logger.info(
+                    f"     Current status: {movie.status.name} "
+                    f"({'4K' if request.is_4k else 'HD/SD'})"
+                )
+
                 if movie.available:
+                    logger.info(f"     ✅ AVAILABLE - Notifying user")
                     # Content is now available - notify user
                     await self.notify_user(request)
                     completed_keys.append(key)
                 else:
-                    logger.debug(
-                        f"Request still pending: {request.title} for {request.username} "
-                        f"(Status: {movie.status.name})"
-                    )
+                    logger.info(f"     ⏳ Still pending")
 
             except Exception as e:
-                logger.error(f"Error checking availability for {request.title}: {e}")
+                logger.error(f"     ❌ Error checking availability: {e}")
+
+        logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
         # Remove completed requests
         for key in completed_keys:
@@ -194,6 +212,8 @@ class NotificationManager:
         if completed_keys:
             self.save_notifications()
             logger.info(f"✅ Notified {len(completed_keys)} user(s) of completed requests")
+        else:
+            logger.info(f"No requests completed in this check")
 
         return len(completed_keys)
 
