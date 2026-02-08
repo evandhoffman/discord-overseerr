@@ -1,0 +1,24 @@
+# Docker Compose override for development
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Enable BuildKit for faster builds
+    
+    # Mount source code for live reloading during development
+    volumes:
+      - ./bot:/app/bot:ro
+      - ./config:/app/config
+      - ./logs:/app/logs
+    
+    # Override environment for development
+    environment:
+      - LOG_LEVEL=DEBUG
+    
+    # Override command to enable auto-reload (if using a reloader)
+    # command: python -m bot.main --reload
