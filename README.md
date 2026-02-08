@@ -229,6 +229,7 @@ python -m bot.main
 |----------|-------------|---------|
 | `DISCORD_BOT_TOKEN` | Discord bot token | Required |
 | `DISCORD_CLIENT_ID` | Discord application client ID | Required |
+| `DISCORD_AUTHORIZED_USERS` | Comma-separated Discord user IDs allowed to use bot (empty = all users) | None |
 | `OVERSEERR_HOSTNAME` | Overseerr server hostname | `localhost` |
 | `OVERSEERR_PORT` | Overseerr server port | `5055` |
 | `OVERSEERR_API_KEY` | Overseerr API key | Required |
@@ -241,8 +242,38 @@ Edit `config/settings.json` for advanced settings:
 
 - **Monitored Channels**: Restrict bot to specific channels
 - **Role Restrictions**: Limit access by Discord roles
+- **Authorized Users**: Whitelist specific Discord users by their User ID
 - **Movie Categories**: Configure 4K vs 1080p options
 - **Notification Settings**: Configure request notifications
+
+#### Setting Up User Whitelist
+
+To restrict bot access to specific Discord users:
+
+1. **Get Discord User IDs**: 
+   - Enable Developer Mode in Discord: Settings → Advanced → Developer Mode
+   - Right-click on a user and select "Copy User ID"
+
+2. **Configure the whitelist**:
+   
+   **Option A - Via Environment Variable** (recommended):
+   ```env
+   # In your .env file
+   DISCORD_AUTHORIZED_USERS=123456789012345678,987654321098765432
+   ```
+
+   **Option B - Via config/settings.json**:
+   ```json
+   {
+     "discord": {
+       "authorized_users": [123456789012345678, 987654321098765432]
+     }
+   }
+   ```
+
+3. **Leave empty to allow everyone**: If `authorized_users` is empty, all server members can use the bot
+
+**Note**: Unauthorized users will receive a "Not Authorized" message when trying to use bot commands.
 
 ## Usage
 

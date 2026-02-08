@@ -23,6 +23,19 @@ class MovieCommands(commands.Cog):
         """Request a movie by title"""
         await interaction.response.defer(ephemeral=True)
 
+        # Check if user is authorized (if whitelist is configured)
+        authorized_users = self.bot.settings.discord.authorized_users
+        if authorized_users and interaction.user.id not in authorized_users:
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    title="🚫 Not Authorized",
+                    description="Sorry, you're not authorized to use this bot.",
+                    color=discord.Color.red(),
+                )
+            )
+            logger.warning(f"Unauthorized request attempt from user {interaction.user.id} ({interaction.user.name})")
+            return
+
         try:
             # Search for movies
             movies = await self.bot.overseerr.search_movies(title)

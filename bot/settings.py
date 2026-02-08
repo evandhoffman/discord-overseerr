@@ -44,6 +44,7 @@ class DiscordSettings(BaseModel):
     client_id: str = ""
     monitored_channels: List[int] = Field(default_factory=list)
     movie_roles: List[int] = Field(default_factory=list)
+    authorized_users: List[int] = Field(default_factory=list)  # Discord user IDs allowed to use bot
     enable_dm_requests: bool = False
     auto_notify_requesters: bool = True
     notification_mode: str = "PrivateMessages"  # or "Channels"
@@ -69,6 +70,7 @@ class BotSettings(BaseSettings):
     # Environment variable overrides
     discord_bot_token: Optional[str] = Field(None, alias="DISCORD_BOT_TOKEN")
     discord_client_id: Optional[str] = Field(None, alias="DISCORD_CLIENT_ID")
+    discord_authorized_users: Optional[str] = Field(None, alias="DISCORD_AUTHORIZED_USERS")
     overseerr_hostname: Optional[str] = Field(None, alias="OVERSEERR_HOSTNAME")
     overseerr_port: Optional[int] = Field(None, alias="OVERSEERR_PORT")
     overseerr_api_key: Optional[str] = Field(None, alias="OVERSEERR_API_KEY")
@@ -80,6 +82,14 @@ class BotSettings(BaseSettings):
             self.discord.bot_token = self.discord_bot_token
         if self.discord_client_id:
             self.discord.client_id = self.discord_client_id
+        if self.discord_authorized_users:
+            # Parse comma-separated list of user IDs
+            user_ids = [
+                int(uid.strip())
+                for uid in self.discord_authorized_users.split(",")
+                if uid.strip()
+            ]
+            self.discord.authorized_users = user_ids
         if self.overseerr_hostname:
             self.overseerr.hostname = self.overseerr_hostname
         if self.overseerr_port:
@@ -136,6 +146,7 @@ class SettingsManager:
                 "discord": {
                     "monitored_channels": self.settings.discord.monitored_channels,
                     "movie_roles": self.settings.discord.movie_roles,
+                    "authorized_users": self.settings.discord.authorized_users,
                     "enable_dm_requests": self.settings.discord.enable_dm_requests,
                     "auto_notify_requesters": self.settings.discord.auto_notify_requesters,
                     "notification_mode": self.settings.discord.notification_mode,
