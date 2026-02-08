@@ -11,15 +11,105 @@ A containerized Discord bot that integrates with Overseerr to enable movie and T
 - ⚙️ Environment-based configuration
 - 📦 Built with Python and `uv` for fast dependency management
 
-## Quick Start
+## Quick Start Guide
+
+This guide will walk you through setting up the bot from scratch, even if you've never created a Discord bot before.
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Discord Bot Token ([Create one here](https://discord.com/developers/applications))
-- Overseerr instance with API access
+- Docker and Docker Compose installed on your machine
+- A Discord account and server where you have admin permissions
+- An Overseerr instance (can be local or remote)
 
-### Setup
+---
+
+## Part 1: Creating Your Discord Bot
+
+### Step 1: Create a Discord Application
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **"New Application"** in the top right
+3. Give your application a name (e.g., "Movie Request Bot")
+4. Accept the Terms of Service and click **"Create"**
+
+### Step 2: Configure Your Bot
+
+1. In the left sidebar, click **"Bot"**
+2. Click **"Add Bot"** and confirm by clicking **"Yes, do it!"**
+3. Under the bot's username, you'll see a **"Token"** section
+   - Click **"Reset Token"** and then **"Copy"**
+   - **⚠️ IMPORTANT**: Save this token somewhere safe! You'll need it later and can't view it again without resetting
+   - This is your `DISCORD_BOT_TOKEN`
+
+4. Scroll down to **"Privileged Gateway Intents"**
+   - Enable **"Message Content Intent"** (required for the bot to work properly)
+   - Click **"Save Changes"**
+
+### Step 3: Get Your Application ID
+
+1. In the left sidebar, click **"General Information"**
+2. Under **"Application ID"**, click **"Copy"**
+   - This is your `DISCORD_CLIENT_ID`
+
+### Step 4: Set Bot Permissions
+
+1. In the left sidebar, click **"OAuth2"** → **"URL Generator"**
+2. In the **"Scopes"** section, check:
+   - ✅ `bot`
+   - ✅ `applications.commands`
+
+3. In the **"Bot Permissions"** section that appears below, check:
+   - ✅ **Read Messages/View Channels**
+   - ✅ **Send Messages**
+   - ✅ **Embed Links**
+   - ✅ **Attach Files**
+   - ✅ **Read Message History**
+   - ✅ **Use Slash Commands**
+
+4. Scroll down and copy the **"Generated URL"** at the bottom
+
+### Step 5: Invite the Bot to Your Server
+
+1. Paste the URL you copied into your browser
+2. Select the server you want to add the bot to from the dropdown
+3. Click **"Continue"**
+4. Review the permissions and click **"Authorize"**
+5. Complete the CAPTCHA if prompted
+
+✅ Your bot should now appear in your Discord server (offline until you start it)!
+
+---
+
+## Part 2: Setting Up Overseerr Integration
+
+### Step 1: Access Your Overseerr Instance
+
+1. Open your Overseerr web interface (e.g., `http://localhost:5055` or your remote URL)
+2. Log in with your admin account
+
+### Step 2: Generate an API Key
+
+1. Click on your profile picture in the top right
+2. Select **"Settings"** from the dropdown
+3. In the left sidebar, click **"General"**
+4. Scroll down to the **"API Key"** section
+5. Click **"Generate"** if you don't have a key, or copy your existing key
+   - This is your `OVERSEERR_API_KEY`
+
+### Step 3: Note Your Overseerr Connection Details
+
+You'll need:
+- **Hostname**: The IP address or domain name of your Overseerr instance
+  - If running on the same machine as the bot: `host.docker.internal` (Docker) or `localhost` (local dev)
+  - If running on another machine: the IP address (e.g., `192.168.1.100`) or domain name
+- **Port**: Usually `5055` (default Overseerr port)
+- **SSL**: Whether you're using HTTPS (`true`) or HTTP (`false`)
+
+---
+
+## Part 3: Deploying the Bot
+
+### Step 1: Clone and Configure
 
 1. **Clone the repository**
    ```bash
@@ -27,28 +117,109 @@ A containerized Discord bot that integrates with Overseerr to enable movie and T
    cd discord-overseerr
    ```
 
-2. **Configure environment variables**
+2. **Create your environment file**
    ```bash
    cp .env.example .env
    ```
 
-   Edit `.env` and add your credentials:
+3. **Edit the `.env` file** with your actual credentials:
+   ```bash
+   nano .env  # or use your preferred editor
+   ```
+
+   Fill in the values you collected:
    ```env
-   DISCORD_BOT_TOKEN=your_bot_token_here
-   DISCORD_CLIENT_ID=your_client_id_here
-   OVERSEERR_API_KEY=your_overseerr_api_key_here
-   OVERSEERR_HOSTNAME=your_overseerr_host
+   # From Discord Developer Portal
+   DISCORD_BOT_TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4.GhIjKl.MnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWx
+   DISCORD_CLIENT_ID=1234567890123456789
+
+   # From Overseerr Settings
+   OVERSEERR_API_KEY=abcdef1234567890abcdef1234567890
+   
+   # Your Overseerr connection details
+   OVERSEERR_HOSTNAME=host.docker.internal  # or your Overseerr IP/domain
+   OVERSEERR_PORT=5055
+   OVERSEERR_USE_SSL=false
+
+   # Optional
+   LOG_LEVEL=INFO
+   TZ=America/New_York  # Your timezone
    ```
 
-3. **Start the bot**
+### Step 2: Start the Bot
+
+Using Docker (recommended):
+```bash
+docker-compose up -d
+```
+
+Or for local development:
+```bash
+# Install uv if needed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv pip install -r requirements.txt
+
+# Run the bot
+python -m bot.main
+```
+
+### Step 3: Verify It's Working
+
+1. **Check the logs**
    ```bash
-   docker-compose up -d
+   docker-compose logs -f discord-bot
    ```
 
-4. **Check logs**
-   ```bash
-   docker-compose logs -f
+   You should see:
    ```
+   ✅ Overseerr connection successful
+   ✅ Synced 1 slash command(s)
+   🤖 Bot logged in as Movie Request Bot
+   ```
+
+2. **Test in Discord**
+   - Go to your Discord server
+   - Type `/` and you should see the `/request` command appear
+   - Try: `/request The Matrix`
+
+🎉 **Congratulations!** Your bot is now running!
+
+---
+
+## Common Issues During Setup
+
+### Discord Bot Issues
+
+**Problem**: Bot appears offline
+- **Solution**: Check that you started the bot with `docker-compose up -d`
+- **Solution**: Check logs for errors: `docker-compose logs -f`
+
+**Problem**: Slash commands don't appear
+- **Solution**: Wait 5-10 minutes for Discord to sync commands globally
+- **Solution**: Check that you enabled `applications.commands` scope when inviting the bot
+- **Solution**: Try kicking and re-inviting the bot with the correct permissions
+
+**Problem**: "Invalid Token" error
+- **Solution**: Make sure you copied the token correctly without extra spaces
+- **Solution**: Reset the token in the Discord Developer Portal and update your `.env` file
+
+### Overseerr Connection Issues
+
+**Problem**: "Overseerr connection failed"
+- **Solution**: If Overseerr is on the same machine, use `OVERSEERR_HOSTNAME=host.docker.internal`
+- **Solution**: If using a custom port, make sure `OVERSEERR_PORT` matches your Overseerr configuration
+- **Solution**: Check that your Overseerr API key is correct
+
+**Problem**: "Invalid API key"
+- **Solution**: Regenerate the API key in Overseerr Settings → General
+- **Solution**: Make sure there are no extra spaces when copying the key
+
+**Problem**: "Connection refused"
+- **Solution**: Verify Overseerr is running and accessible
+- **Solution**: Test connectivity: `curl http://your-overseerr-host:5055/api/v1/settings/main`
+- **Solution**: Check firewall settings if Overseerr is on a different machine
 
 ## Configuration
 
@@ -161,28 +332,23 @@ docker-compose up -d --build
 docker-compose down -v
 ```
 
-## Troubleshooting
+## Advanced Troubleshooting
 
-### Bot doesn't respond to commands
+### Permission Issues
 
-1. Check bot is online in Discord
-2. Verify bot has proper permissions in your server
-3. Ensure slash commands are synced (check logs for "Synced X command(s)")
-4. Check logs: `docker-compose logs -f`
+**Problem**: Bot can't send messages in certain channels
+- **Solution**: Check channel-specific permissions for the bot role
+- **Solution**: Ensure the bot role is not below roles that restrict access
 
-### Overseerr connection fails
+### Request Failures
 
-1. Verify Overseerr is accessible from the bot container
-2. Check API key is correct
-3. Verify hostname/port settings
-4. If Overseerr is on the host machine, use `host.docker.internal` instead of `localhost`
+**Problem**: Movie requests fail with "Permission denied"
+- **Solution**: Check that the Overseerr user account has request permissions
+- **Solution**: Verify quota limits haven't been exceeded in Overseerr
 
-### Commands don't appear in Discord
-
-1. Ensure bot has `applications.commands` scope
-2. Wait a few minutes for Discord to sync commands
-3. Try kicking and re-inviting the bot
-4. Check bot logs for sync errors
+**Problem**: "Movie already requested" but it's not visible
+- **Solution**: Check if another user already requested it in Overseerr
+- **Solution**: Verify you're checking the correct quality profile (4K vs HD)
 
 ## Contributing
 
