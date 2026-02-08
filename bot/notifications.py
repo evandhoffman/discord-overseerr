@@ -26,6 +26,7 @@ class PendingRequest:
         title: str,
         timestamp: str,
         is_4k: bool = False,
+        last_status: int = MediaStatus.UNKNOWN,
     ):
         self.user_id = user_id
         self.username = username
@@ -33,6 +34,7 @@ class PendingRequest:
         self.title = title
         self.timestamp = timestamp
         self.is_4k = is_4k
+        self.last_status = MediaStatus(last_status) if isinstance(last_status, int) else last_status
 
     def to_dict(self):
         return {
@@ -42,6 +44,7 @@ class PendingRequest:
             "title": self.title,
             "timestamp": self.timestamp,
             "is_4k": self.is_4k,
+            "last_status": int(self.last_status),
         }
 
     @classmethod
@@ -53,6 +56,7 @@ class PendingRequest:
             title=data["title"],
             timestamp=data["timestamp"],
             is_4k=data.get("is_4k", False),
+            last_status=data.get("last_status", MediaStatus.UNKNOWN),
         )
 
     def get_elapsed_time(self) -> str:
@@ -87,6 +91,11 @@ class NotificationManager:
         self.notifications_file = Path(notifications_file)
         self.pending_requests: Dict[str, PendingRequest] = {}
         self.load_notifications()
+
+        # Configure check interval from settings
+        check_interval = bot.settings.discord.notification_check_interval
+        self.check_availability.change_interval(minutes=check_interval)
+        logger.info(f"Notification check interval set to {check_interval} minute(s)")
 
     def load_notifications(self):
         """Load pending notifications from file"""
@@ -192,10 +201,18 @@ class NotificationManager:
                     f"({'4K' if request.is_4k else 'HD/SD'})"
                 )
 
+                # Check if status changed
+                if movie.status != request.last_status:
+                    logger.info(
+                        f"     🔄 Status changed: {request.last_status.name} → {movie.status.name}"
+                    )
+                    await self.notify_status_change(request, request.last_status, movie.status)
+                    request.last_status = movie.status
+                    self.save_notifications()
+
                 if movie.available:
-                    logger.info(f"     ✅ AVAILABLE - Notifying user")
-                    # Content is now available - notify user
-                    await self.notify_user(request)
+                    logger.info(f"     ✅ AVAILABLE - Removing from tracking")
+                    # Content is now available - remove from tracking
                     completed_keys.append(key)
                 else:
                     logger.info(f"     ⏳ Still pending")
@@ -211,13 +228,13 @@ class NotificationManager:
 
         if completed_keys:
             self.save_notifications()
-            logger.info(f"✅ Notified {len(completed_keys)} user(s) of completed requests")
+            logger.info(f"✅ {len(completed_keys)} request(s) completed and removed from tracking")
         else:
             logger.info(f"No requests completed in this check")
 
         return len(completed_keys)
 
-    @tasks.loop(minutes=10)
+    @tasks.loop()
     async def check_availability(self):
         """Periodically check if requested content is now available"""
         if not self.pending_requests:
@@ -226,31 +243,72 @@ class NotificationManager:
         logger.info(f"Checking availability for {len(self.pending_requests)} pending request(s)")
         await self._check_and_notify()
 
-    async def notify_user(self, request: PendingRequest):
-        """Send notification to user that their request is complete"""
+    def _get_status_message(self, status: MediaStatus) -> tuple[str, str, discord.Color]:
+        """Get status-specific message details"""
+        status_map = {
+            MediaStatus.PENDING: (
+                "📝 Request Pending",
+                "Your request has been received and is pending approval.",
+                discord.Color.orange(),
+            ),
+            MediaStatus.PROCESSING: (
+                "⚙️ Processing",
+                "Your request is being processed! The content is being downloaded.",
+                discord.Color.blue(),
+            ),
+            MediaStatus.PARTIALLY_AVAILABLE: (
+                "📦 Partially Available",
+                "Part of your requested content is ready!",
+                discord.Color.gold(),
+            ),
+            MediaStatus.AVAILABLE: (
+                "🎬 Available!",
+                "Your requested content is now ready to watch!",
+                discord.Color.green(),
+            ),
+        }
+        return status_map.get(
+            status,
+            ("ℹ️ Status Update", "Status updated.", discord.Color.greyple()),
+        )
+
+    async def notify_status_change(
+        self, request: PendingRequest, old_status: MediaStatus, new_status: MediaStatus
+    ):
+        """Send notification to user about status change"""
         try:
             user = await self.bot.fetch_user(request.user_id)
             elapsed_time = request.get_elapsed_time()
 
+            title, description, color = self._get_status_message(new_status)
+
             embed = discord.Embed(
-                title="🎬 Content Available!",
-                description=f"The content you requested is now ready to watch!",
-                color=discord.Color.green(),
+                title=title,
+                description=description,
+                color=color,
             )
 
             embed.add_field(name="Title", value=request.title, inline=False)
+            embed.add_field(
+                name="Status",
+                value=f"{old_status.name} → **{new_status.name}**",
+                inline=True,
+            )
 
             if request.is_4k:
                 embed.add_field(name="Quality", value="4K UHD", inline=True)
 
-            embed.add_field(name="Request Completed In", value=elapsed_time, inline=True)
+            embed.add_field(name="Time Elapsed", value=elapsed_time, inline=True)
 
-            embed.set_footer(text="Enjoy your movie! 🍿")
+            if new_status == MediaStatus.AVAILABLE:
+                embed.set_footer(text="Enjoy your movie! 🍿")
+            else:
+                embed.set_footer(text="You'll be notified when the status changes.")
 
             await user.send(embed=embed)
             logger.info(
-                f"✅ Notified {request.username} that {request.title} is available "
-                f"(completed in {elapsed_time})"
+                f"✅ Notified {request.username} of status change for {request.title}: "
+                f"{old_status.name} → {new_status.name}"
             )
 
         except discord.Forbidden:
