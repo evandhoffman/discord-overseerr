@@ -22,7 +22,9 @@ RUN uv pip install --no-cache -r requirements.txt
 
 # Copy application code
 COPY bot/ ./bot/
-COPY config/ ./config/
+
+# Create directories for runtime data
+RUN mkdir -p /app/config /app/logs
 
 # Create non-root user for security
 RUN useradd -m -u 1000 botuser && \
