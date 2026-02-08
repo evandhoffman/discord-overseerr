@@ -255,9 +255,19 @@ class OverseerrClient:
         # Determine status based on 4K or regular
         if media_info:
             if is_4k:
-                status = media_info.get("status4k", MediaStatus.UNKNOWN)
+                status_value = media_info.get("status4k", MediaStatus.UNKNOWN)
             else:
-                status = media_info.get("status", MediaStatus.UNKNOWN)
+                status_value = media_info.get("status", MediaStatus.UNKNOWN)
+
+            # Convert int to MediaStatus enum if needed
+            if isinstance(status_value, int):
+                try:
+                    status = MediaStatus(status_value)
+                except ValueError:
+                    logger.warning(f"Unknown status value {status_value}, defaulting to UNKNOWN")
+                    status = MediaStatus.UNKNOWN
+            else:
+                status = status_value
 
             available = status in [MediaStatus.AVAILABLE, MediaStatus.PARTIALLY_AVAILABLE]
             requested = status in [MediaStatus.PENDING, MediaStatus.PROCESSING]
