@@ -4,6 +4,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Any, Optional
 
 import discord
 from discord.ext import commands
@@ -13,12 +14,16 @@ from bot.overseerr import OverseerrClient
 from bot.notifications import NotificationManager
 
 # Configure logging
+# Ensure logs directory exists
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/bot.log", encoding="utf-8"),
+        logging.FileHandler(log_dir / "bot.log", encoding="utf-8"),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -27,7 +32,7 @@ logger = logging.getLogger(__name__)
 class MovieBot(commands.Bot):
     """Discord bot for movie and TV show requests via Overseerr"""
 
-    def __init__(self, settings_manager: SettingsManager):
+    def __init__(self, settings_manager: SettingsManager) -> None:
         self.settings_manager = settings_manager
         self.settings = settings_manager.load()
 
@@ -41,10 +46,10 @@ class MovieBot(commands.Bot):
             help_command=None,  # We'll create a custom help command
         )
 
-        self.overseerr: OverseerrClient = None
-        self.notifications: NotificationManager = None
+        self.overseerr: Optional[OverseerrClient] = None
+        self.notifications: Optional[NotificationManager] = None
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         """Called when the bot is starting up"""
         logger.info("Starting bot setup...")
 
@@ -78,7 +83,7 @@ class MovieBot(commands.Bot):
         except Exception as e:
             logger.error(f"❌ Failed to sync commands: {e}")
 
-    async def load_extensions(self):
+    async def load_extensions(self) -> None:
         """Load bot extensions/cogs"""
         extensions = [
             "bot.cogs.movie_commands",
@@ -93,7 +98,7 @@ class MovieBot(commands.Bot):
             except Exception as e:
                 logger.error(f"❌ Failed to load extension {extension}: {e}")
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """Called when bot successfully connects to Discord"""
         logger.info(f"🤖 Bot logged in as {self.user} (ID: {self.user.id})")
         logger.info(f"📊 Connected to {len(self.guilds)} guild(s)")
@@ -117,11 +122,11 @@ class MovieBot(commands.Bot):
             )
         )
 
-    async def on_error(self, event_method: str, *args, **kwargs):
+    async def on_error(self, event_method: str, *args: Any, **kwargs: Any) -> None:
         """Global error handler"""
         logger.exception(f"Error in {event_method}")
 
-    async def close(self):
+    async def close(self) -> None:
         """Cleanup when bot shuts down"""
         logger.info("Shutting down bot...")
         if self.notifications:
@@ -131,7 +136,7 @@ class MovieBot(commands.Bot):
         await super().close()
 
 
-async def main():
+async def main() -> None:
     """Main entry point"""
     # Ensure logs directory exists
     Path("logs").mkdir(exist_ok=True)

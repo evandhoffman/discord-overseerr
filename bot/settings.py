@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -78,7 +78,7 @@ class BotSettings(BaseSettings):
     overseerr_api_key: Optional[str] = Field(None, alias="OVERSEERR_API_KEY")
     overseerr_use_ssl: Optional[bool] = Field(None, alias="OVERSEERR_USE_SSL")
 
-    def model_post_init(self, __context):
+    def model_post_init(self, __context: Any) -> None:
         """Apply environment variable overrides after initialization"""
         if self.discord_bot_token:
             self.discord.bot_token = self.discord_bot_token
@@ -105,7 +105,7 @@ class BotSettings(BaseSettings):
 class SettingsManager:
     """Manages bot settings with file persistence"""
 
-    def __init__(self, config_path: str = "./config/settings.json"):
+    def __init__(self, config_path: str = "./config/settings.json") -> None:
         self.config_path = Path(config_path)
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings: Optional[BotSettings] = None
@@ -139,7 +139,7 @@ class SettingsManager:
 
         return self.settings
 
-    def save(self):
+    def save(self) -> None:
         """Save current settings to file"""
         if self.settings:
             # Don't save sensitive data to file

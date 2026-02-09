@@ -1,5 +1,52 @@
 # Discord Overseerr Bot - AI Agent Instructions
 
+## Code Quality Standards
+
+### Type Hints
+**All code MUST use comprehensive type hints:**
+- All function/method parameters must have type annotations
+- All function/method return types must be explicitly annotated (use `-> None` for void functions)
+- Use `typing` module for complex types: `List`, `Dict`, `Optional`, `Any`, `Union`, `Tuple`
+- Use `TYPE_CHECKING` for forward references to avoid circular imports
+- Dataclass fields must have type annotations
+- Use `Optional[T]` for nullable types instead of `T | None` (Python 3.9+ compatibility)
+
+**Example:**
+```python
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from bot.main import MovieBot
+
+def process_data(items: List[str], user_id: int) -> Dict[str, Any]:
+    """Process items and return results"""
+    ...
+
+async def send_notification(user: discord.User) -> None:
+    """Send notification (no return value)"""
+    ...
+```
+
+### Security & Public Repository Standards
+**Write all code as if it will be publicly visible:**
+- **NEVER hardcode secrets, API keys, tokens, or passwords**
+- All sensitive data must come from environment variables or external config files
+- Use `.env` files (gitignored) for local development secrets
+- Document required environment variables in README and code comments
+- Add placeholder values in example configs (e.g., `DISCORD_BOT_TOKEN=your_token_here`)
+- Review all commits for accidentally exposed secrets before pushing
+- Use `.gitignore` to exclude:
+  - `.env` files
+  - `config/settings.json` (if it contains secrets)
+  - API keys, credentials, tokens
+  - Personal configuration files
+
+### Code Documentation
+- All modules must have docstrings explaining their purpose
+- All public functions/methods must have docstrings with parameter/return descriptions
+- Use emoji in user-facing messages (✅ ❌ ⚠️ 🎬 📺) for better UX
+- Comment complex logic or non-obvious implementation details
+
 ## Architecture Overview
 
 This is a **containerized Discord bot** that bridges Discord slash commands with Overseerr's API for movie/TV show requests. The architecture follows a clean separation of concerns:
@@ -50,6 +97,14 @@ docker-compose restart discord-bot  # After config changes
 ```
 
 ## Project-Specific Conventions
+
+### Type Hints & Code Style
+- **Mandatory type hints**: All functions must have parameter types and return types
+- **Import organization**: Group imports (stdlib, third-party, local) with blank lines between
+- **Use dataclasses**: For data structures with `@dataclass` decorator
+- **Async/await**: All Discord interactions and HTTP calls are async
+- **Error handling**: Catch specific exceptions, log with context
+- **Security**: Never commit secrets; use environment variables
 
 ### Configuration Management
 - **Never commit secrets**: Use `.env` (gitignored) or Docker env vars

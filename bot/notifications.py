@@ -5,12 +5,15 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import discord
 from discord.ext import tasks
 
 from bot.overseerr import MediaStatus
+
+if TYPE_CHECKING:
+    from bot.main import MovieBot
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ class PendingRequest:
         self.is_4k = is_4k
         self.last_status = MediaStatus(last_status) if isinstance(last_status, int) else last_status
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -48,7 +51,7 @@ class PendingRequest:
         }
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Dict[str, Any]) -> "PendingRequest":
         return cls(
             user_id=data["user_id"],
             username=data["username"],
@@ -86,7 +89,9 @@ class PendingRequest:
 class NotificationManager:
     """Manages user notifications for completed requests"""
 
-    def __init__(self, bot, notifications_file: str = "./config/notifications.json"):
+    def __init__(
+        self, bot: "MovieBot", notifications_file: str = "./config/notifications.json"
+    ) -> None:
         self.bot = bot
         self.notifications_file = Path(notifications_file)
         self.pending_requests: Dict[str, PendingRequest] = {}
@@ -97,7 +102,7 @@ class NotificationManager:
         self.check_availability.change_interval(minutes=check_interval)
         logger.info(f"Notification check interval set to {check_interval} minute(s)")
 
-    def load_notifications(self):
+    def load_notifications(self) -> None:
         """Load pending notifications from file"""
         if self.notifications_file.exists():
             try:
@@ -113,7 +118,7 @@ class NotificationManager:
         else:
             self.pending_requests = {}
 
-    def save_notifications(self):
+    def save_notifications(self) -> None:
         """Save pending notifications to file"""
         try:
             # Ensure directory exists
@@ -127,7 +132,7 @@ class NotificationManager:
 
     def add_request(
         self, user_id: int, username: str, tmdb_id: int, title: str, is_4k: bool = False
-    ):
+    ) -> None:
         """Add a request to be tracked for notifications"""
         key = f"{user_id}:{tmdb_id}{'_4k' if is_4k else ''}"
 
@@ -149,7 +154,7 @@ class NotificationManager:
         self.save_notifications()
         logger.info(f"✅ Added notification tracking for {username}: {title}")
 
-    async def check_pending_on_startup(self):
+    async def check_pending_on_startup(self) -> None:
         """Check all pending requests immediately on startup"""
         if not self.pending_requests:
             logger.info("No pending notifications to check on startup")
@@ -160,21 +165,21 @@ class NotificationManager:
         )
         await self._check_and_notify()
 
-    def start_monitoring(self):
+    def start_monitoring(self) -> None:
         """Start the background task to monitor requests"""
         if not self.check_availability.is_running():
             self.check_availability.start()
             logger.info("Started notification monitoring task")
 
-    def stop_monitoring(self):
+    def stop_monitoring(self) -> None:
         """Stop the background task"""
         if self.check_availability.is_running():
             self.check_availability.cancel()
             logger.info("Stopped notification monitoring task")
 
-    async def _check_and_notify(self):
+    async def _check_and_notify(self) -> int:
         """Core logic to check availability and notify users"""
-        completed_keys = []
+        completed_keys: List[str] = []
 
         logger.info(
             f"━━━━━━━━━━ Checking {len(self.pending_requests)} Pending Request(s) ━━━━━━━━━━"
@@ -235,7 +240,7 @@ class NotificationManager:
         return len(completed_keys)
 
     @tasks.loop()
-    async def check_availability(self):
+    async def check_availability(self) -> None:
         """Periodically check if requested content is now available"""
         if not self.pending_requests:
             return
@@ -274,7 +279,7 @@ class NotificationManager:
 
     async def notify_status_change(
         self, request: PendingRequest, old_status: MediaStatus, new_status: MediaStatus
-    ):
+    ) -> None:
         """Send notification to user about status change"""
         try:
             user = await self.bot.fetch_user(request.user_id)
@@ -319,7 +324,7 @@ class NotificationManager:
             logger.error(f"❌ Error notifying user {request.username}: {e}")
 
     @check_availability.before_loop
-    async def before_check_availability(self):
+    async def before_check_availability(self) -> None:
         """Wait for bot to be ready before starting checks"""
         await self.bot.wait_until_ready()
         logger.info("Notification manager ready - starting availability checks")
