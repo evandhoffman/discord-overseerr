@@ -42,4 +42,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Run the bot
 # Note: Chainguard images run as 'nonroot' user (UID 65532) by default
 # If you need to adjust host directory permissions, use: chown -R 65532:65532 ./config ./logs
-CMD ["python", "-m", "bot.main"]
+# The image entrypoint is already /usr/bin/python, so we just pass the module args
+CMD ["-m", "bot.main"]
