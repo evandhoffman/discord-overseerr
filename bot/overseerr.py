@@ -159,7 +159,8 @@ class OverseerrClient:
                 headers={
                     "X-Api-Key": self.api_key,
                     "Content-Type": "application/json",
-                }
+                },
+                timeout=aiohttp.ClientTimeout(total=30),
             )
         return self.session
 

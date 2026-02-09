@@ -336,7 +336,7 @@ To restrict bot access to specific Discord users:
 The bot automatically tracks requests and sends notifications when content becomes available:
 
 - **Tracking File**: `config/notifications.json` stores pending requests
-- **Check Interval**: Bot checks Overseerr every 10 minutes
+- **Check Interval**: Bot checks Overseerr every 5 minutes (configurable via `NOTIFICATION_CHECK_INTERVAL`)
 - **Persistence**: Survives bot restarts - pending notifications are saved
 - **Auto-cleanup**: Completed requests are automatically removed
 
@@ -377,7 +377,7 @@ When you request a movie, the bot automatically tracks your request and monitors
 - Confirmation that it's ready to watch
 
 **How it works**:
-1. Bot checks Overseerr every 10 minutes for status updates
+1. Bot checks Overseerr every 5 minutes for status updates (configurable)
 2. When your requested movie becomes available, you get a DM
 3. Notification includes how long the request took to complete
 
@@ -531,8 +531,80 @@ sudo chown -R 65532:65532 config logs
 - **Solution**: Check pending requests: `cat config/notifications.json`
 
 **Problem**: Notifications arrive late
-- **Solution**: Normal behavior - bot checks every 10 minutes
+- **Solution**: Normal behavior - bot checks every 5 minutes by default
+- **Solution**: Adjust check interval with `NOTIFICATION_CHECK_INTERVAL` environment variable
 - **Solution**: Check bot logs to see when checks are happening
+
+## Frequently Asked Questions (FAQ)
+
+### 1. Where do I find my Discord User ID?
+
+Enable Developer Mode in Discord (**Settings → Advanced → Developer Mode**), then right-click your username anywhere and select **"Copy User ID"**. Add this to `DISCORD_AUTHORIZED_USERS` in your `.env` file.
+
+### 2. Why am I not receiving notifications when my requests complete?
+
+Ensure you have DMs enabled from server members (**Server Settings → Privacy Settings → Allow direct messages from server members**). Also check that you haven't blocked the bot. The bot sends completion notifications via DM by default.
+
+### 3. How do I generate an Overseerr API key?
+
+Log into Overseerr, click your profile picture → **Settings → General** → scroll to **"API Key"** section. Click **"Generate"** if you don't have one, or copy your existing key to use as `OVERSEERR_API_KEY`.
+
+### 4. The bot says "Overseerr connection failed" - what's wrong?
+
+Check:
+1. Is Overseerr actually running?
+2. Is the hostname correct (`host.docker.internal` for same machine, IP/domain for remote)?
+3. Is the port correct (default 5055)?
+4. Is your API key valid?
+
+Test with: `curl http://your-host:5055/api/v1/settings/main`
+
+### 5. Can I run this without Docker?
+
+Yes! Install dependencies with `uv pip install -r requirements.txt`, create your `.env` file, then run `python -m bot.main`. Make sure the `config` and `logs` directories are writable.
+
+### 6. How do I restrict the bot to specific Discord channels?
+
+Edit `config/settings.json` and add channel IDs to `discord.monitored_channels`. Get channel IDs by right-clicking a channel (with Developer Mode enabled) and selecting **"Copy Channel ID"**.
+
+**Note**: This feature is available in the config file but not currently enforced by the bot. It's planned for a future release.
+
+### 7. Why does the bot show "Permission denied" when I try to request?
+
+Either:
+1. Your Discord User ID isn't in the `DISCORD_AUTHORIZED_USERS` whitelist
+2. Your Overseerr account has exceeded its request quota
+3. The Overseerr user associated with the bot doesn't have request permissions
+
+### 8. How often does the bot check if my requests are ready?
+
+Default is every **5 minutes**. Change with `NOTIFICATION_CHECK_INTERVAL=10` in `.env` (value in minutes). Checks happen in the background - you'll get a DM when content becomes available.
+
+### 9. I'm getting "Permission denied" errors writing to config/logs - help?
+
+The Chainguard Docker image runs as UID 65532. Fix with:
+```bash
+sudo chown -R 65532:65532 config logs
+```
+Run this on your host machine before starting the container.
+
+### 10. The slash commands aren't showing up in Discord - what do I do?
+
+Commands can take **5-10 minutes** to sync globally. If still missing:
+1. Check bot logs for sync errors
+2. Verify the bot has `applications.commands` scope
+3. Try kicking and re-inviting the bot with the correct OAuth2 URL
+
+### 11. How do I update to a new version of the bot?
+
+```bash
+git pull  # Get latest code
+docker-compose down && docker-compose up -d --build
+```
+
+Your config and notification tracking in the `config/` directory will persist across updates.
+
+---
 
 ## Development
 
