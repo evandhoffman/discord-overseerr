@@ -9,6 +9,7 @@ COPY pyproject.toml requirements.txt ./
 # Create virtual environment and install dependencies using uv
 RUN python -m venv /app/venv && \
     . /app/venv/bin/activate && \
+    pip install --upgrade pip>=25.0 wheel>=0.46.2 && \
     pip install uv && \
     uv pip install --no-cache -r requirements.txt
 
