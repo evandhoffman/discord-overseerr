@@ -4,24 +4,24 @@ import asyncio
 import json
 import tempfile
 from pathlib import Path
-from typing import AsyncGenerator, Dict, Any
+from typing import Any, AsyncGenerator, Dict, Generator
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from aioresponses import aioresponses
 
+from bot.overseerr import MediaStatus, Movie, OverseerrClient, TVShow
 from bot.settings import (
     BotSettings,
     DiscordSettings,
-    OverseerrSettings,
     MovieCategorySettings,
+    OverseerrSettings,
     SettingsManager,
 )
-from bot.overseerr import OverseerrClient, Movie, TVShow, MediaStatus
 
 
 @pytest.fixture
-def mock_env_vars(monkeypatch):
+def mock_env_vars(monkeypatch) -> Dict[str, str]:
     """Mock environment variables for testing"""
     env_vars = {
         "DISCORD_BOT_TOKEN": "test_bot_token_12345",
@@ -41,14 +41,14 @@ def mock_env_vars(monkeypatch):
 
 
 @pytest.fixture
-def temp_config_dir():
+def temp_config_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for config files"""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
 
 @pytest.fixture
-def temp_settings_file(temp_config_dir):
+def temp_settings_file(temp_config_dir) -> Path:
     """Create a temporary settings.json file"""
     settings_file = temp_config_dir / "settings.json"
     settings_data = {
@@ -87,20 +87,20 @@ def temp_settings_file(temp_config_dir):
 
 
 @pytest.fixture
-def bot_settings(mock_env_vars):
+def bot_settings(mock_env_vars) -> BotSettings:
     """Create a BotSettings instance with test data"""
     settings = BotSettings()
     return settings
 
 
 @pytest.fixture
-def settings_manager(temp_settings_file):
+def settings_manager(temp_settings_file) -> SettingsManager:
     """Create a SettingsManager instance with temp file"""
     return SettingsManager(config_path=str(temp_settings_file))
 
 
 @pytest.fixture
-def discord_settings():
+def discord_settings() -> DiscordSettings:
     """Create a DiscordSettings instance"""
     return DiscordSettings(
         bot_token="test_token",
@@ -117,7 +117,7 @@ def discord_settings():
 
 
 @pytest.fixture
-def overseerr_settings():
+def overseerr_settings() -> OverseerrSettings:
     """Create an OverseerrSettings instance"""
     return OverseerrSettings(
         hostname="test.overseerr.local",
@@ -129,7 +129,7 @@ def overseerr_settings():
 
 
 @pytest.fixture
-async def overseerr_client(overseerr_settings):
+async def overseerr_client(overseerr_settings) -> AsyncGenerator[OverseerrClient, None]:
     """Create an OverseerrClient instance"""
     client = OverseerrClient(
         hostname=overseerr_settings.hostname,
@@ -142,14 +142,14 @@ async def overseerr_client(overseerr_settings):
 
 
 @pytest.fixture
-def mock_aiohttp():
+def mock_aiohttp() -> Generator[aioresponses, None, None]:
     """Mock aiohttp responses"""
     with aioresponses() as m:
         yield m
 
 
 @pytest.fixture
-def sample_movie_data():
+def sample_movie_data() -> Dict[str, Any]:
     """Sample movie data from Overseerr API"""
     return {
         "id": 550,
@@ -167,7 +167,7 @@ def sample_movie_data():
 
 
 @pytest.fixture
-def sample_tv_data():
+def sample_tv_data() -> Dict[str, Any]:
     """Sample TV show data from Overseerr API"""
     return {
         "id": 1396,
@@ -185,7 +185,7 @@ def sample_tv_data():
 
 
 @pytest.fixture
-def sample_movie():
+def sample_movie() -> Movie:
     """Create a sample Movie object"""
     return Movie(
         tmdb_id=550,
@@ -202,7 +202,7 @@ def sample_movie():
 
 
 @pytest.fixture
-def sample_tv_show():
+def sample_tv_show() -> TVShow:
     """Create a sample TVShow object"""
     return TVShow(
         tmdb_id=1396,
@@ -219,7 +219,7 @@ def sample_tv_show():
 
 
 @pytest.fixture
-def mock_discord_bot():
+def mock_discord_bot() -> MagicMock:
     """Create a mock Discord bot"""
     bot = MagicMock()
     bot.user = MagicMock()
@@ -239,7 +239,7 @@ def mock_discord_bot():
 
 
 @pytest.fixture
-def mock_discord_interaction():
+def mock_discord_interaction() -> AsyncMock:
     """Create a mock Discord interaction"""
     interaction = AsyncMock()
     interaction.user = MagicMock()
@@ -256,7 +256,7 @@ def mock_discord_interaction():
 
 
 @pytest.fixture
-def mock_notification_file(temp_config_dir):
+def mock_notification_file(temp_config_dir) -> Path:
     """Create a temporary notifications.json file"""
     notifications_file = temp_config_dir / "notifications.json"
     notifications_data = {
@@ -278,7 +278,7 @@ def mock_notification_file(temp_config_dir):
 
 
 @pytest.fixture
-def overseerr_search_response():
+def overseerr_search_response() -> Dict[str, Any]:
     """Sample search response from Overseerr API"""
     return {
         "page": 1,
@@ -316,7 +316,7 @@ def overseerr_search_response():
 
 
 @pytest.fixture
-def overseerr_movie_details_response():
+def overseerr_movie_details_response() -> Dict[str, Any]:
     """Sample movie details response from Overseerr API"""
     return {
         "id": 550,
@@ -340,7 +340,7 @@ def overseerr_movie_details_response():
 
 
 @pytest.fixture
-def overseerr_request_success_response():
+def overseerr_request_success_response() -> Dict[str, Any]:
     """Sample successful request response from Overseerr API"""
     return {
         "id": 1,
@@ -357,7 +357,7 @@ def overseerr_request_success_response():
 
 
 # Helper functions for tests
-def create_mock_response(status: int = 200, payload: Dict[str, Any] = None):
+def create_mock_response(status: int = 200, payload: Dict[str, Any] = None) -> AsyncMock:
     """Create a mock HTTP response"""
     mock_response = AsyncMock()
     mock_response.status = status

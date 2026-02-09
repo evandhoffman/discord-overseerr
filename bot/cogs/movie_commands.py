@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.overseerr import Movie, TVShow, MediaItem
+from bot.overseerr import MediaItem, Movie, TVShow
 
 if TYPE_CHECKING:
     from bot.main import MovieBot
@@ -232,7 +232,7 @@ class MovieCommands(commands.Cog):
             options=options,
         )
 
-        async def select_callback(select_interaction: discord.Interaction):
+        async def select_callback(select_interaction: discord.Interaction) -> None:
             if select_interaction.user.id != interaction.user.id:
                 await select_interaction.response.send_message(
                     "This selection is not for you!", ephemeral=True
@@ -313,7 +313,7 @@ class MovieCommands(commands.Cog):
             emoji=button_emoji,
         )
 
-        async def button_callback(button_interaction: discord.Interaction):
+        async def button_callback(button_interaction: discord.Interaction) -> None:
             if button_interaction.user.id != interaction.user.id:
                 await button_interaction.response.send_message(
                     "This button is not for you!", ephemeral=True

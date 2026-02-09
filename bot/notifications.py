@@ -30,7 +30,7 @@ class PendingRequest:
         timestamp: str,
         is_4k: bool = False,
         last_status: int = MediaStatus.UNKNOWN,
-    ):
+    ) -> None:
         self.user_id = user_id
         self.username = username
         self.tmdb_id = tmdb_id
