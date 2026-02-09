@@ -34,6 +34,12 @@ class Movie:
     requested: bool = False
     status: MediaStatus = MediaStatus.UNKNOWN
     media_type: str = "movie"
+    popularity: float = 0.0
+    cast: List[str] = None
+
+    def __post_init__(self):
+        if self.cast is None:
+            self.cast = []
 
     @property
     def poster_url(self) -> str:
@@ -49,6 +55,13 @@ class Movie:
             return self.release_date[:4]
         return None
 
+    @property
+    def cast_list(self) -> str:
+        """Format cast list for display"""
+        if self.cast:
+            return ", ".join(self.cast[:3])  # Show first 3 actors
+        return ""
+
 
 @dataclass
 class TVShow:
@@ -63,6 +76,12 @@ class TVShow:
     requested: bool = False
     status: MediaStatus = MediaStatus.UNKNOWN
     media_type: str = "tv"
+    popularity: float = 0.0
+    cast: List[str] = None
+
+    def __post_init__(self):
+        if self.cast is None:
+            self.cast = []
 
     @property
     def poster_url(self) -> str:
@@ -87,6 +106,13 @@ class TVShow:
     def release_year(self) -> Optional[str]:
         """Alias for first_year to match Movie interface"""
         return self.first_year
+
+    @property
+    def cast_list(self) -> str:
+        """Format cast list for display"""
+        if self.cast:
+            return ", ".join(self.cast[:3])  # Show first 3 actors
+        return ""
 
 
 # Union type for media items
@@ -211,6 +237,9 @@ class OverseerrClient:
                         media_items.append(self._convert_movie(item, is_4k))
                     elif media_type == "tv":
                         media_items.append(self._convert_tv(item, is_4k))
+
+                # Sort by popularity (descending)
+                media_items.sort(key=lambda x: x.popularity, reverse=True)
 
                 logger.info(
                     f"Search for '{query}' returned {len(media_items)} result(s) "
@@ -411,6 +440,12 @@ class OverseerrClient:
         media_info = data.get("mediaInfo")
         status, available, requested = self._parse_media_status(media_info, is_4k)
 
+        # Extract cast names
+        cast_list = []
+        cast_data = data.get("cast", [])
+        if cast_data:
+            cast_list = [actor.get("name", "") for actor in cast_data[:3]]
+
         return Movie(
             tmdb_id=data.get("id"),
             title=data.get("title", "Unknown"),
@@ -420,12 +455,20 @@ class OverseerrClient:
             available=available,
             requested=requested,
             status=status,
+            popularity=data.get("popularity", 0.0),
+            cast=cast_list,
         )
 
     def _convert_tv(self, data: Dict[str, Any], is_4k: bool) -> TVShow:
         """Convert Overseerr JSON to TVShow object"""
         media_info = data.get("mediaInfo")
         status, available, requested = self._parse_media_status(media_info, is_4k)
+
+        # Extract cast names
+        cast_list = []
+        cast_data = data.get("cast", [])
+        if cast_data:
+            cast_list = [actor.get("name", "") for actor in cast_data[:3]]
 
         return TVShow(
             tmdb_id=data.get("id"),
@@ -436,6 +479,8 @@ class OverseerrClient:
             available=available,
             requested=requested,
             status=status,
+            popularity=data.get("popularity", 0.0),
+            cast=cast_list,
         )
 
     def _parse_media_status(

@@ -208,11 +208,18 @@ class MovieCommands(commands.Cog):
             # Store both TMDB ID and media type in value
             value = f"{media.media_type}:{media.tmdb_id}"
 
+            # Prefer cast list in description, fallback to overview
+            description = None
+            if media.cast_list:
+                description = f"★ {media.cast_list}"
+            elif media.overview:
+                description = media.overview[:100]
+
             options.append(
                 discord.SelectOption(
                     label=label[:100],  # Discord limit
                     value=value,
-                    description=media.overview[:100] if media.overview else None,
+                    description=description[:100] if description else None,
                 )
             )
 
