@@ -37,7 +37,7 @@ class Movie:
     popularity: float = 0.0
     cast: List[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.cast is None:
             self.cast = []
 
@@ -79,7 +79,7 @@ class TVShow:
     popularity: float = 0.0
     cast: List[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.cast is None:
             self.cast = []
 
@@ -122,7 +122,7 @@ MediaItem = Movie | TVShow
 class MovieRequestResult:
     """Result of a movie request operation"""
 
-    def __init__(self, success: bool = True, error_message: str = ""):
+    def __init__(self, success: bool = True, error_message: str = "") -> None:
         self.success = success
         self.error_message = error_message
 
@@ -140,7 +140,7 @@ class OverseerrClient:
         port: int,
         api_key: str,
         use_ssl: bool = False,
-    ):
+    ) -> None:
         self.hostname = hostname
         self.port = port
         self.api_key = api_key
@@ -163,7 +163,7 @@ class OverseerrClient:
             )
         return self.session
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP session"""
         if self.session and not self.session.closed:
             await self.session.close()

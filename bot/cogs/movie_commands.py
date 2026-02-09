@@ -1,6 +1,7 @@
 """Movie and TV show request commands"""
 
 import logging
+from typing import TYPE_CHECKING, List
 
 import discord
 from discord import app_commands
@@ -8,17 +9,20 @@ from discord.ext import commands
 
 from bot.overseerr import Movie, TVShow, MediaItem
 
+if TYPE_CHECKING:
+    from bot.main import MovieBot
+
 logger = logging.getLogger(__name__)
 
 
 class MovieCommands(commands.Cog):
     """Movie request slash commands"""
 
-    def __init__(self, bot):
+    def __init__(self, bot: "MovieBot") -> None:
         self.bot = bot
 
     @app_commands.command(name="ping", description="Check if the bot is alive")
-    async def ping(self, interaction: discord.Interaction):
+    async def ping(self, interaction: discord.Interaction) -> None:
         """Health check command"""
         await interaction.response.send_message(
             embed=discord.Embed(
@@ -30,7 +34,7 @@ class MovieCommands(commands.Cog):
         )
 
     @app_commands.command(name="help", description="Show available commands and how to use them")
-    async def help_command(self, interaction: discord.Interaction):
+    async def help_command(self, interaction: discord.Interaction) -> None:
         """Help command showing all available commands"""
         embed = discord.Embed(
             title="🎬 Discord Overseerr Bot - Help",
@@ -72,7 +76,7 @@ class MovieCommands(commands.Cog):
     @app_commands.command(
         name="overseerr-health", description="Check Overseerr connection and health"
     )
-    async def overseerr_health(self, interaction: discord.Interaction):
+    async def overseerr_health(self, interaction: discord.Interaction) -> None:
         """Check if Overseerr is reachable and healthy"""
         await interaction.response.defer(ephemeral=True)
 
@@ -117,7 +121,7 @@ class MovieCommands(commands.Cog):
 
     @app_commands.command(name="request", description="Request a movie or TV show")
     @app_commands.describe(title="Title of the movie or TV show to request")
-    async def request_media(self, interaction: discord.Interaction, title: str):
+    async def request_media(self, interaction: discord.Interaction, title: str) -> None:
         """Request a movie or TV show by title"""
         await interaction.response.defer(ephemeral=True)
 
@@ -191,8 +195,8 @@ class MovieCommands(commands.Cog):
             )
 
     async def _show_media_selection(
-        self, interaction: discord.Interaction, media_items: list[MediaItem]
-    ):
+        self, interaction: discord.Interaction, media_items: List[MediaItem]
+    ) -> None:
         """Display dropdown of movies and TV shows"""
         options = []
         for media in media_items[:25]:  # Discord limit
@@ -258,7 +262,7 @@ class MovieCommands(commands.Cog):
 
         await interaction.followup.send("Please select a movie or TV show:", view=view)
 
-    async def _show_media_details(self, interaction: discord.Interaction, media: MediaItem):
+    async def _show_media_details(self, interaction: discord.Interaction, media: MediaItem) -> None:
         """Show media details with request button"""
         media_type_label = "Movie" if isinstance(media, Movie) else "TV Show"
         logger.info(
@@ -368,6 +372,6 @@ class MovieCommands(commands.Cog):
         return media.title
 
 
-async def setup(bot):
+async def setup(bot: "MovieBot") -> None:
     """Load the cog"""
     await bot.add_cog(MovieCommands(bot))
