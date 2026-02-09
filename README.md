@@ -136,7 +136,7 @@ You'll need:
 
    # From Overseerr Settings
    OVERSEERR_API_KEY=zzzzzzzz
-   
+
    # Your Overseerr connection details
    OVERSEERR_HOSTNAME=host.docker.internal  # or your Overseerr IP/domain
    OVERSEERR_PORT=5055
@@ -147,7 +147,24 @@ You'll need:
    TZ=America/New_York  # Your timezone
    ```
 
-### Step 2: Start the Bot
+### Step 2: Prepare Directories
+
+**Important**: This bot uses [Chainguard Python images](https://images.chainguard.dev/directory/image/python/overview) which run as a fixed `nonroot` user (UID 65532) for enhanced security. You need to set proper permissions for the config and logs directories:
+
+```bash
+# Create directories if they don't exist
+mkdir -p config logs
+
+# Set ownership for Chainguard's nonroot user
+sudo chown -R 65532:65532 config logs
+
+# Alternative: Make directories writable (less secure)
+chmod -R 777 config logs
+```
+
+**Why UID 65532?** Chainguard images use a fixed non-root user for security. This ensures the container runs with minimal privileges even if compromised.
+
+### Step 3: Start the Bot
 
 Using Docker (recommended):
 ```bash
@@ -166,7 +183,7 @@ uv pip install -r requirements.txt
 python -m bot.main
 ```
 
-### Step 3: Verify It's Working
+### Step 4: Verify It's Working
 
 1. **Check the logs**
    ```bash
@@ -184,7 +201,7 @@ python -m bot.main
    - Go to your Discord server
    - Type `/` and you should see the bot's commands appear
 
-### Step 4: Available Commands
+### Step 5: Available Commands
 
 Once your bot is running, you can use these slash commands:
 
@@ -289,12 +306,12 @@ Edit `config/settings.json` for advanced settings:
 
 To restrict bot access to specific Discord users:
 
-1. **Get Discord User IDs**: 
+1. **Get Discord User IDs**:
    - Enable Developer Mode in Discord: Settings → Advanced → Developer Mode
    - Right-click on a user and select "Copy User ID"
 
 2. **Configure the whitelist**:
-   
+
    **Option A - Via Environment Variable** (recommended):
    ```env
    # In your .env file
@@ -374,7 +391,7 @@ When you request a movie, the bot automatically tracks your request and monitors
    ```bash
    # Install uv if you haven't
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+
    # Install dependencies
    uv pip install -r requirements.txt
    ```
@@ -418,7 +435,40 @@ discord-overseerr/
 └── requirements.txt        # Python dependencies
 ```
 
-## Docker Commands
+## Docker Configuration
+
+### Base Image: Chainguard Python
+
+This project uses [Chainguard Python images](https://images.chainguard.dev/directory/image/python/overview), which provide:
+
+- ✅ **Minimal attack surface** - Distroless design with no unnecessary packages
+- ✅ **Low/Zero CVEs** - Daily security updates and minimal vulnerabilities
+- ✅ **SLSA Level 3** - Supply chain security compliance
+- ✅ **Built-in SBOM** - Software Bill of Materials for transparency
+- ✅ **Reproducible builds** - Verified with Sigstore signatures
+
+The Dockerfile uses a multi-stage build:
+1. **Builder stage** (`chainguard/python:latest-dev`) - Installs dependencies with uv
+2. **Runtime stage** (`chainguard/python:latest`) - Minimal production image
+
+### User Permissions
+
+**Important**: Chainguard images run as UID `65532` (nonroot user) for security. Host directories must be writable by this user:
+
+```bash
+# Set ownership for config and logs
+sudo chown -R 65532:65532 config logs
+
+# Or make directories world-writable (less secure)
+chmod -R 777 config logs
+
+# Verify permissions
+ls -la config logs
+```
+
+**Note**: Unlike traditional Docker images, you cannot customize the user ID. This fixed UID ensures consistent security across environments.
+
+### Docker Commands
 
 ```bash
 # Start the bot
@@ -438,11 +488,25 @@ docker-compose up -d --build
 
 # Remove everything (including volumes)
 docker-compose down -v
+
+# Fix permissions if bot can't write to config/logs
+sudo chown -R 65532:65532 config logs
 ```
 
 ## Advanced Troubleshooting
 
-### Permission Issues
+### Docker Permission Issues
+
+**Problem**: Bot fails with "Permission denied" when writing to config or logs
+- **Solution**: Set correct ownership: `sudo chown -R 65532:65532 config logs`
+- **Solution**: Verify directories exist before starting: `mkdir -p config logs`
+- **Solution**: Alternative (less secure): `chmod -R 777 config logs`
+
+**Problem**: Changes to config/settings.json not taking effect
+- **Solution**: Restart the bot after config changes: `docker-compose restart discord-bot`
+- **Solution**: Check file ownership: `ls -la config/settings.json`
+
+### Discord Permission Issues
 
 **Problem**: Bot can't send messages in certain channels
 - **Solution**: Check channel-specific permissions for the bot role
