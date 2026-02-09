@@ -1,12 +1,15 @@
 """Settings management with Pydantic"""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class OverseerrSettings(BaseModel):
@@ -17,6 +20,14 @@ class OverseerrSettings(BaseModel):
     api_key: str = ""
     use_ssl: bool = False
     default_user_id: Optional[str] = None
+
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        """Validate port is in valid range"""
+        if not 1 <= v <= 65535:
+            raise ValueError(f"Port must be between 1 and 65535, got {v}")
+        return v
 
     @property
     def base_url(self) -> str:
@@ -50,6 +61,14 @@ class DiscordSettings(BaseModel):
     notification_mode: str = "PrivateMessages"  # or "Channels"
     notification_channels: List[int] = Field(default_factory=list)
     notification_check_interval: int = 5  # Minutes between availability checks
+
+    @field_validator("notification_check_interval")
+    @classmethod
+    def validate_check_interval(cls, v: int) -> int:
+        """Validate notification check interval is reasonable"""
+        if v < 1:
+            raise ValueError(f"Notification check interval must be at least 1 minute, got {v}")
+        return v
 
 
 class BotSettings(BaseSettings):
@@ -85,11 +104,20 @@ class BotSettings(BaseSettings):
         if self.discord_client_id:
             self.discord.client_id = self.discord_client_id
         if self.discord_authorized_users:
-            # Parse comma-separated list of user IDs
-            user_ids = [
-                int(uid.strip()) for uid in self.discord_authorized_users.split(",") if uid.strip()
-            ]
-            self.discord.authorized_users = user_ids
+            # Parse comma-separated list of user IDs with validation
+            try:
+                user_ids = [
+                    int(uid.strip())
+                    for uid in self.discord_authorized_users.split(",")
+                    if uid.strip()
+                ]
+                self.discord.authorized_users = user_ids
+            except ValueError as e:
+                logger.error(f"Invalid DISCORD_AUTHORIZED_USERS format: {e}")
+                logger.error(
+                    f"Expected comma-separated integers, got: {self.discord_authorized_users}"
+                )
+                self.discord.authorized_users = []
         if self.notification_check_interval:
             self.discord.notification_check_interval = self.notification_check_interval
         if self.overseerr_hostname:
@@ -117,22 +145,30 @@ class SettingsManager:
 
         # Then merge with JSON file if it exists
         if self.config_path.exists():
-            with open(self.config_path, "r") as f:
-                data = json.load(f)
+            try:
+                with open(self.config_path, "r") as f:
+                    data = json.load(f)
 
-                # Update settings from file (env vars take precedence)
-                if not self.settings.discord.bot_token and "discord" in data:
-                    discord_data = data["discord"]
-                    if "bot_token" in discord_data:
-                        self.settings.discord.bot_token = discord_data["bot_token"]
-                    if "client_id" in discord_data:
-                        self.settings.discord.client_id = discord_data["client_id"]
+                    # Update settings from file (env vars take precedence)
+                    if not self.settings.discord.bot_token and "discord" in data:
+                        discord_data = data["discord"]
+                        if "bot_token" in discord_data:
+                            self.settings.discord.bot_token = discord_data["bot_token"]
+                        if "client_id" in discord_data:
+                            self.settings.discord.client_id = discord_data["client_id"]
 
-                # Merge other settings
-                if "movie_categories" in data:
-                    self.settings.movie_categories = [
-                        MovieCategorySettings(**cat) for cat in data["movie_categories"]
-                    ]
+                    # Merge other settings
+                    if "movie_categories" in data:
+                        self.settings.movie_categories = [
+                            MovieCategorySettings(**cat) for cat in data["movie_categories"]
+                        ]
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Failed to parse config file {self.config_path}: {e}")
+                logger.warning("⚠️  Falling back to environment variables and defaults")
+                # Continue with settings from environment variables
+            except Exception as e:
+                logger.error(f"❌ Error reading config file {self.config_path}: {e}")
+                logger.warning("⚠️  Falling back to environment variables and defaults")
         else:
             # Create default settings file
             self.save()

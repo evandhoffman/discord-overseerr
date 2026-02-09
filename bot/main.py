@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import signal
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -9,9 +10,9 @@ from typing import Any, Optional
 import discord
 from discord.ext import commands
 
-from bot.settings import SettingsManager
-from bot.overseerr import OverseerrClient
 from bot.notifications import NotificationManager
+from bot.overseerr import OverseerrClient
+from bot.settings import SettingsManager
 
 # Configure logging
 # Ensure logs directory exists
@@ -157,6 +158,14 @@ async def main() -> None:
 
     # Create and run bot
     bot = MovieBot(settings_manager)
+
+    # Setup signal handlers for graceful shutdown
+    def handle_shutdown(sig: int, frame: Any) -> None:
+        logger.info(f"Received signal {sig}, initiating graceful shutdown...")
+        asyncio.create_task(bot.close())
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
 
     try:
         async with bot:
