@@ -13,12 +13,16 @@ from bot.overseerr import OverseerrClient
 from bot.notifications import NotificationManager
 
 # Configure logging
+# Ensure logs directory exists
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/bot.log", encoding="utf-8"),
+        logging.FileHandler(log_dir / "bot.log", encoding="utf-8"),
     ],
 )
 logger = logging.getLogger(__name__)

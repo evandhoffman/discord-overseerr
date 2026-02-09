@@ -2,11 +2,10 @@
 
 import asyncio
 import json
-import logging
 import tempfile
 from pathlib import Path
 from typing import AsyncGenerator, Dict, Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from aioresponses import aioresponses
@@ -19,18 +18,6 @@ from bot.settings import (
     SettingsManager,
 )
 from bot.overseerr import OverseerrClient, Movie, TVShow, MediaStatus
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _patch_logging():
-    """Patch logging.basicConfig to prevent file handler creation during tests"""
-    with patch("logging.basicConfig"):
-        # Configure a simple console-only logger for tests
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
-        yield
 
 
 @pytest.fixture

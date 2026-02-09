@@ -8,10 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aioresponses import aioresponses
 
-# Patch logging before importing bot.main to prevent file handler creation
-with patch("logging.basicConfig"):
-    from bot.main import MovieBot
-
+from bot.main import MovieBot
 from bot.overseerr import MediaStatus, Movie
 from bot.settings import SettingsManager
 
