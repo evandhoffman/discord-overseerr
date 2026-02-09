@@ -470,6 +470,86 @@ docker-compose down -v
 - **Solution**: Normal behavior - bot checks every 10 minutes
 - **Solution**: Check bot logs to see when checks are happening
 
+## Development
+
+### Running Tests
+
+This project includes a comprehensive test suite with unit tests and integration tests.
+
+#### Quick Start
+
+```bash
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+pytest
+
+# Run with coverage
+./run_tests.sh coverage
+
+# Run specific test types
+./run_tests.sh unit          # Unit tests only
+./run_tests.sh integration   # Integration tests only
+./run_tests.sh fast          # Fast run without coverage
+```
+
+#### Test Coverage
+
+Current test coverage includes:
+- **Settings Management**: Configuration loading, environment variable overrides
+- **Overseerr Client**: API interactions, search, movie details, requests
+- **Notification System**: Request tracking, availability monitoring
+- **Bot Initialization**: Setup, command registration, error handling
+- **Integration Tests**: End-to-end workflows
+
+For detailed testing documentation, see [docs/testing.md](docs/testing.md).
+
+#### Available Test Commands
+
+```bash
+./run_tests.sh all          # Run all tests with coverage (default)
+./run_tests.sh unit         # Run unit tests only
+./run_tests.sh integration  # Run integration tests only
+./run_tests.sh coverage     # Generate detailed coverage report
+./run_tests.sh watch        # Run tests on file changes
+./run_tests.sh debug        # Run with debugger (pdb)
+./run_tests.sh failed       # Re-run only failed tests
+./run_tests.sh parallel     # Run tests in parallel (faster)
+./run_tests.sh help         # Show all available commands
+```
+
+### Local Development
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd discord-overseerr
+
+# Install dependencies
+uv pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run the bot locally
+python -m bot.main
+
+# Run tests
+./run_tests.sh
+```
+
+### Development with Docker
+
+```bash
+# Use development compose with live reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# View logs
+docker-compose logs -f discord-bot
+```
+
 ## Contributing
 
 Contributions are welcome! Please:
@@ -477,7 +557,16 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Submit a pull request
+4. **Run tests**: `./run_tests.sh` (ensure all tests pass)
+5. **Check coverage**: Maintain >80% code coverage
+6. Submit a pull request
+
+### Code Quality
+
+- Write tests for new features
+- Follow existing code style and patterns
+- Update documentation as needed
+- Use type hints where appropriate
 
 ## License
 
