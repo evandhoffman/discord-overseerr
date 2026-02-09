@@ -1,52 +1,49 @@
-version: '3.8'
+version: "3.8"
 
 services:
   discord-bot:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - PUID=${PUID:-3333}
-        - PGID=${PGID:-3333}
     container_name: discord-overseerr-bot
     restart: unless-stopped
-    
+
     environment:
       # Discord Configuration
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - DISCORD_AUTHORIZED_USERS=${DISCORD_AUTHORIZED_USERS:-}
-      
+
       # Overseerr Configuration
       - OVERSEERR_HOSTNAME=${OVERSEERR_HOSTNAME:-localhost}
       - OVERSEERR_PORT=${OVERSEERR_PORT:-5055}
       - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
       - OVERSEERR_USE_SSL=${OVERSEERR_USE_SSL:-false}
-      
+
       # Optional Configuration
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - TZ=${TZ:-UTC}
-    
+
     volumes:
       # Persist configuration and data
       - ${CONFIG_PATH:-./config}:/app/config
       - ${LOGS_PATH:-./logs}:/app/logs
-    
+
     # Uncomment if you need to connect to Overseerr on host network
     # network_mode: host
-    
+
     # Or use custom network
     networks:
       - bot-network
-    
+
     # Resource limits (optional but recommended)
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 256M
 
 networks:
