@@ -21,9 +21,12 @@ jobs:
         id: get_latest_tag
         run: |
           # Get the latest tag, or use v0.0.0 if no tags exist
-          LATEST_TAG=$(git tag -l "v*" | sort -V | tail -n 1)
-          if [ -z "$LATEST_TAG" ]; then
+          # Strip 'v' prefix for proper numeric sorting, then restore it
+          TAGS=$(git tag -l "v*.*.*")
+          if [ -z "$TAGS" ]; then
             LATEST_TAG="v0.0.0"
+          else
+            LATEST_TAG=$(echo "$TAGS" | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | sed 's/^/v/' | tail -n 1)
           fi
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           echo "Latest tag: $LATEST_TAG"
@@ -55,6 +58,13 @@ jobs:
       - name: Create tag
         run: |
           NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+            echo "Tag $NEW_VERSION already exists. Skipping tag creation."
+            exit 0
+          fi
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
