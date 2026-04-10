@@ -199,6 +199,7 @@ class MovieCommands(commands.Cog):
     ) -> None:
         """Display dropdown of movies and TV shows"""
         options = []
+        media_by_value: dict[str, MediaItem] = {}
         for media in media_items[:25]:  # Discord limit
             # Create label with emoji and text type indicator
             if isinstance(media, Movie):
@@ -211,6 +212,7 @@ class MovieCommands(commands.Cog):
 
             # Store both TMDB ID and media type in value
             value = f"{media.media_type}:{media.tmdb_id}"
+            media_by_value[value] = media
 
             # Prefer cast list in description, fallback to overview
             description = None
@@ -240,12 +242,14 @@ class MovieCommands(commands.Cog):
                 return
 
             await select_interaction.response.defer()
-            # Parse media type and ID from value
-            media_type, tmdb_id_str = select_interaction.data["values"][0].split(":")
+            selected_value = select_interaction.data["values"][0]
+            media_type, tmdb_id_str = selected_value.split(":")
             tmdb_id = int(tmdb_id_str)
+            media = media_by_value.get(selected_value)
 
-            # Fetch media details
-            media = await self.bot.overseerr.get_media_by_id(tmdb_id, media_type)
+            # Fallback to an API lookup if the selection is missing from the current result set.
+            if media is None:
+                media = await self.bot.overseerr.get_media_by_id(tmdb_id, media_type)
 
             logger.info(
                 f"User {select_interaction.user.name} (UID {select_interaction.user.id}) "
