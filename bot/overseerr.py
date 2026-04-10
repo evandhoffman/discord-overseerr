@@ -1,5 +1,6 @@
 """Overseerr API client"""
 
+import json
 import logging
 from dataclasses import dataclass
 from enum import IntEnum
@@ -410,9 +411,9 @@ class OverseerrClient:
                 "is4k": is_4k,
             }
 
-            # Add seasons for TV shows (if not specified, defaults to all)
-            if media_type == "tv" and seasons is not None:
-                payload["seasons"] = seasons
+            # Seerr accepts either an explicit season list or the string "all" for TV requests.
+            if media_type == "tv":
+                payload["seasons"] = seasons if seasons is not None else "all"
 
             # Add user ID if provided
             if user_id:
@@ -420,15 +421,27 @@ class OverseerrClient:
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 403:
+                    error_text = await resp.text()
+                    logger.error(
+                        f"Request for {media_type} {tmdb_id} failed with status 403: {error_text}"
+                    )
                     return MovieRequestResult(
                         success=False,
                         error_message="Permission denied or quota exceeded",
                     )
                 elif resp.status != 201:
-                    error = await resp.json()
+                    error_text = await resp.text()
+                    logger.error(
+                        f"Request for {media_type} {tmdb_id} failed with status {resp.status}: "
+                        f"{error_text}"
+                    )
+                    try:
+                        error = json.loads(error_text)
+                    except json.JSONDecodeError:
+                        error = {}
                     return MovieRequestResult(
                         success=False,
-                        error_message=error.get("message", "Request failed"),
+                        error_message=error.get("message", error_text or "Request failed"),
                     )
 
                 return MovieRequestResult(success=True)

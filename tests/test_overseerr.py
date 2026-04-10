@@ -480,6 +480,32 @@ class TestOverseerrClient:
             assert result.success is False
 
     @pytest.mark.asyncio
+    async def test_request_tv_defaults_to_all_seasons(
+        self, overseerr_client, overseerr_request_success_response
+    ):
+        """Test TV requests send the explicit all-seasons payload"""
+        captured_payload = {}
+
+        def request_callback(url, **kwargs):
+            captured_payload.update(kwargs.get("json", {}))
+            return CallbackResult(status=201, payload=overseerr_request_success_response)
+
+        from aioresponses.core import CallbackResult
+
+        with aioresponses() as m:
+            m.post(
+                f"{overseerr_client.base_url}request",
+                callback=request_callback,
+            )
+
+            result = await overseerr_client.request_tv(1396)
+
+            assert result.success is True
+            assert captured_payload["mediaType"] == "tv"
+            assert captured_payload["mediaId"] == 1396
+            assert captured_payload["seasons"] == "all"
+
+    @pytest.mark.asyncio
     async def test_close_session(self, overseerr_client):
         """Test closing the HTTP session"""
         # Create a session first
