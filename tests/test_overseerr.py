@@ -344,6 +344,79 @@ class TestOverseerrClient:
                 await overseerr_client.get_movie_by_id(999999)
 
     @pytest.mark.asyncio
+    async def test_get_tv_by_id(self, overseerr_client):
+        """Test getting TV details by ID"""
+        with aioresponses() as m:
+            m.get(
+                f"{overseerr_client.base_url}tv/1396",
+                status=200,
+                payload={
+                    "id": 1396,
+                    "name": "Breaking Bad",
+                    "overview": "A high school chemistry teacher...",
+                    "firstAirDate": "2008-01-20",
+                    "posterPath": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+                    "mediaType": "tv",
+                    "popularity": 456.789,
+                    "mediaInfo": {
+                        "status": 2,
+                        "status4k": 1,
+                    },
+                    "cast": [
+                        {"name": "Bryan Cranston"},
+                        {"name": "Aaron Paul"},
+                        {"name": "Anna Gunn"},
+                    ],
+                },
+            )
+
+            tv_show = await overseerr_client.get_tv_by_id(1396)
+
+            assert isinstance(tv_show, TVShow)
+            assert tv_show.tmdb_id == 1396
+            assert tv_show.title == "Breaking Bad"
+            assert tv_show.requested is True
+            assert tv_show.status == MediaStatus.PENDING
+            assert len(tv_show.cast) == 3
+
+    @pytest.mark.asyncio
+    async def test_get_tv_by_id_with_media_info_list(self, overseerr_client):
+        """Test TV details when Overseerr returns mediaInfo as a list"""
+        with aioresponses() as m:
+            m.get(
+                f"{overseerr_client.base_url}tv/1396",
+                status=200,
+                payload={
+                    "id": 1396,
+                    "name": "Breaking Bad",
+                    "overview": "A high school chemistry teacher...",
+                    "firstAirDate": "2008-01-20",
+                    "posterPath": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+                    "mediaType": "tv",
+                    "popularity": 456.789,
+                    "mediaInfo": [
+                        {
+                            "status": 1,
+                            "status4k": 1,
+                        },
+                        {
+                            "status": 2,
+                            "status4k": 1,
+                        },
+                    ],
+                    "cast": [
+                        {"name": "Bryan Cranston"},
+                    ],
+                },
+            )
+
+            tv_show = await overseerr_client.get_tv_by_id(1396)
+
+            assert isinstance(tv_show, TVShow)
+            assert tv_show.requested is True
+            assert tv_show.status == MediaStatus.PENDING
+
+    @pytest.mark.asyncio
     async def test_request_movie_success(
         self, overseerr_client, overseerr_request_success_response
     ):
@@ -405,6 +478,32 @@ class TestOverseerrClient:
             result = await overseerr_client.request_movie(550)
             # Should return failure since status is not 201
             assert result.success is False
+
+    @pytest.mark.asyncio
+    async def test_request_tv_defaults_to_all_seasons(
+        self, overseerr_client, overseerr_request_success_response
+    ):
+        """Test TV requests send the explicit all-seasons payload"""
+        captured_payload = {}
+
+        def request_callback(url, **kwargs):
+            captured_payload.update(kwargs.get("json", {}))
+            return CallbackResult(status=201, payload=overseerr_request_success_response)
+
+        from aioresponses.core import CallbackResult
+
+        with aioresponses() as m:
+            m.post(
+                f"{overseerr_client.base_url}request",
+                callback=request_callback,
+            )
+
+            result = await overseerr_client.request_tv(1396)
+
+            assert result.success is True
+            assert captured_payload["mediaType"] == "tv"
+            assert captured_payload["mediaId"] == 1396
+            assert captured_payload["seasons"] == "all"
 
     @pytest.mark.asyncio
     async def test_close_session(self, overseerr_client):

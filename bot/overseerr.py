@@ -1,5 +1,6 @@
 """Overseerr API client"""
 
+import json
 import logging
 from dataclasses import dataclass
 from enum import IntEnum
@@ -410,9 +411,9 @@ class OverseerrClient:
                 "is4k": is_4k,
             }
 
-            # Add seasons for TV shows (if not specified, defaults to all)
-            if media_type == "tv" and seasons is not None:
-                payload["seasons"] = seasons
+            # Seerr accepts either an explicit season list or the string "all" for TV requests.
+            if media_type == "tv":
+                payload["seasons"] = seasons if seasons is not None else "all"
 
             # Add user ID if provided
             if user_id:
@@ -420,15 +421,27 @@ class OverseerrClient:
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 403:
+                    error_text = await resp.text()
+                    logger.error(
+                        f"Request for {media_type} {tmdb_id} failed with status 403: {error_text}"
+                    )
                     return MovieRequestResult(
                         success=False,
                         error_message="Permission denied or quota exceeded",
                     )
                 elif resp.status != 201:
-                    error = await resp.json()
+                    error_text = await resp.text()
+                    logger.error(
+                        f"Request for {media_type} {tmdb_id} failed with status {resp.status}: "
+                        f"{error_text}"
+                    )
+                    try:
+                        error = json.loads(error_text)
+                    except json.JSONDecodeError:
+                        error = {}
                     return MovieRequestResult(
                         success=False,
-                        error_message=error.get("message", "Request failed"),
+                        error_message=error.get("message", error_text or "Request failed"),
                     )
 
                 return MovieRequestResult(success=True)
@@ -485,27 +498,45 @@ class OverseerrClient:
         )
 
     def _parse_media_status(
-        self, media_info: Optional[Dict[str, Any]], is_4k: bool
+        self, media_info: Optional[Dict[str, Any] | List[Dict[str, Any]]], is_4k: bool
     ) -> tuple[MediaStatus, bool, bool]:
         """Parse media status from Overseerr response"""
-        if media_info:
-            if is_4k:
-                status_value = media_info.get("status4k", MediaStatus.UNKNOWN)
-            else:
-                status_value = media_info.get("status", MediaStatus.UNKNOWN)
+        if not media_info:
+            status = MediaStatus.UNKNOWN
+            available = False
+            requested = False
+            return status, available, requested
 
-            # Convert int to MediaStatus enum if needed
+        media_info_items = media_info if isinstance(media_info, list) else [media_info]
+        statuses: List[MediaStatus] = []
+
+        for item in media_info_items:
+            if not isinstance(item, dict):
+                continue
+
+            status_key = "status4k" if is_4k else "status"
+            status_value = item.get(status_key, MediaStatus.UNKNOWN)
+
+            if isinstance(status_value, MediaStatus):
+                statuses.append(status_value)
+                continue
+
             if isinstance(status_value, int):
                 try:
-                    status = MediaStatus(status_value)
+                    statuses.append(MediaStatus(status_value))
                 except ValueError:
                     logger.warning(f"Unknown status value {status_value}, defaulting to UNKNOWN")
-                    status = MediaStatus.UNKNOWN
-            else:
-                status = status_value
 
-            available = status in [MediaStatus.AVAILABLE, MediaStatus.PARTIALLY_AVAILABLE]
-            requested = status in [MediaStatus.PENDING, MediaStatus.PROCESSING]
+        if statuses:
+            status = max(statuses)
+            available = any(
+                item_status in [MediaStatus.AVAILABLE, MediaStatus.PARTIALLY_AVAILABLE]
+                for item_status in statuses
+            )
+            requested = any(
+                item_status in [MediaStatus.PENDING, MediaStatus.PROCESSING]
+                for item_status in statuses
+            )
         else:
             status = MediaStatus.UNKNOWN
             available = False

@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.overseerr import MediaItem, Movie, TVShow
+from bot.overseerr import MediaItem, MediaStatus, Movie, TVShow
 
 if TYPE_CHECKING:
     from bot.main import MovieBot
@@ -199,6 +199,7 @@ class MovieCommands(commands.Cog):
     ) -> None:
         """Display dropdown of movies and TV shows"""
         options = []
+        media_by_value: dict[str, MediaItem] = {}
         for media in media_items[:25]:  # Discord limit
             # Create label with emoji and text type indicator
             if isinstance(media, Movie):
@@ -211,6 +212,7 @@ class MovieCommands(commands.Cog):
 
             # Store both TMDB ID and media type in value
             value = f"{media.media_type}:{media.tmdb_id}"
+            media_by_value[value] = media
 
             # Prefer cast list in description, fallback to overview
             description = None
@@ -240,12 +242,27 @@ class MovieCommands(commands.Cog):
                 return
 
             await select_interaction.response.defer()
-            # Parse media type and ID from value
-            media_type, tmdb_id_str = select_interaction.data["values"][0].split(":")
+            selected_value = select_interaction.data["values"][0]
+            media_type, tmdb_id_str = selected_value.split(":")
             tmdb_id = int(tmdb_id_str)
+            media = media_by_value.get(selected_value)
 
-            # Fetch media details
-            media = await self.bot.overseerr.get_media_by_id(tmdb_id, media_type)
+            # Refresh details when the search result is missing or lacks usable availability state.
+            if media is None or (
+                media.status == MediaStatus.UNKNOWN
+                and not media.available
+                and not media.requested
+            ):
+                logger.info(
+                    f"Refreshing details for selected {media_type} TMDB ID {tmdb_id} "
+                    f"because cached search result had no resolved availability state"
+                )
+                media = await self.bot.overseerr.get_media_by_id(tmdb_id, media_type)
+                logger.info(
+                    f"Refreshed details for '{media.title}' ({media.release_year or 'Unknown year'}) "
+                    f"[{media_type.upper()}] [TMDB ID: {media.tmdb_id}] - "
+                    f"Status: {media.status.name}, Available: {media.available}, Requested: {media.requested}"
+                )
 
             logger.info(
                 f"User {select_interaction.user.name} (UID {select_interaction.user.id}) "
@@ -321,12 +338,22 @@ class MovieCommands(commands.Cog):
                 return
 
             await button_interaction.response.defer()
+            logger.info(
+                f"User {button_interaction.user.name} (UID {button_interaction.user.id}) "
+                f"clicked request for '{media.title}' ({media.release_year or 'Unknown year'}) "
+                f"[{media.media_type.upper()}] [TMDB ID: {media.tmdb_id}]"
+            )
 
             # Request based on media type
             if isinstance(media, Movie):
                 result = await self.bot.overseerr.request_movie(media.tmdb_id)
             else:  # TVShow - request all seasons by default
                 result = await self.bot.overseerr.request_tv(media.tmdb_id)
+
+            logger.info(
+                f"Request result for '{media.title}' [TMDB ID: {media.tmdb_id}] "
+                f"success={result.success} error='{result.error_message}'"
+            )
 
             if result.success:
                 # Add to notification tracking

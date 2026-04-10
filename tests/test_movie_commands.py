@@ -404,11 +404,11 @@ class TestShowMediaSelection:
     async def test_media_selection_callback_success(
         self, mock_discord_bot, mock_discord_interaction, sample_movie
     ):
-        """Test media selection callback fetches and shows details"""
+        """Test media selection callback uses the selected search result"""
         # Setup
         cog = MovieCommands(mock_discord_bot)
         mock_discord_bot.overseerr = AsyncMock()
-        mock_discord_bot.overseerr.get_media_by_id = AsyncMock(return_value=sample_movie)
+        mock_discord_bot.overseerr.get_media_by_id = AsyncMock()
 
         await cog._show_media_selection(mock_discord_interaction, [sample_movie])
 
@@ -429,7 +429,7 @@ class TestShowMediaSelection:
 
             # Verify
             select_interaction.response.defer.assert_called_once()
-            mock_discord_bot.overseerr.get_media_by_id.assert_called_once_with(550, "movie")
+            mock_discord_bot.overseerr.get_media_by_id.assert_not_called()
             mock_show_details.assert_called_once_with(mock_discord_interaction, sample_movie)
 
 
