@@ -1,0 +1,87 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper tag detection
+      
+      - name: Get latest tag
+        id: get_latest_tag
+        run: |
+          # Get the latest tag, or use v0.0.0 if no tags exist
+          # Strip 'v' prefix for proper numeric sorting, then restore it
+          TAGS=$(git tag -l "v*.*.*")
+          if [ -z "$TAGS" ]; then
+            LATEST_TAG="v0.0.0"
+          else
+            LATEST_TAG=$(echo "$TAGS" | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | sed 's/^/v/' | tail -n 1)
+          fi
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+      
+      - name: Calculate next version
+        id: next_version
+        run: |
+          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+          
+          # Remove the 'v' prefix and split into components
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          
+          # Increment patch version
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            # First release
+            NEW_VERSION="v1.0.0"
+          else
+            # Increment patch
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version: $NEW_VERSION"
+      
+      - name: Create tag
+        run: |
+          NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+            echo "Tag $NEW_VERSION already exists. Skipping tag creation."
+            exit 0
+          fi
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push origin "$NEW_VERSION"
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.next_version.outputs.new_version }}
+          release_name: Release ${{ steps.next_version.outputs.new_version }}
+          body: |
+            ## What's Changed
+            
+            This release was automatically generated from the latest commit to the main branch.
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_latest_tag.outputs.latest_tag }}...${{ steps.next_version.outputs.new_version }}
+          draft: false
+          prerelease: false
